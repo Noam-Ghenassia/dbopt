@@ -110,8 +110,9 @@ class FCNN():
         Returns:
             _type_: _description_
         """
+        print("test")
         self.params = get_params(opt_state)
-        return opt_update(i, grad(self._loss)(self.params, batch), opt_state)
+        return opt_update(i, grad(lambda x : self._loss(x, batch))(self.params), opt_state)
     
     def train(self, data, labels):
         """The main fnction of the class. It trains the neural network on the dataset
@@ -140,7 +141,7 @@ class FCNN():
             for _ in range(num_batches):
                 opt_state = self._update(next(itercount), opt_state, next(batches),
                                          opt_update, get_params)
-                #params = get_params(opt_state)
+                self.params = get_params(opt_state)
             epoch_time = time.time() - start_time
 
             if epoch%50 == 0 :
