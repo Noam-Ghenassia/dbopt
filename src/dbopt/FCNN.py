@@ -96,7 +96,6 @@ class FCNN():
                 batch_idx = perm[i * self.batch_size[0]:(i + 1) * self.batch_size[0]]
                 yield data[batch_idx], self._one_hot(labels[batch_idx])
     
-    @jit
     def _update(self, i, opt_state, batch, opt_update, get_params):
         """This function updates the parameters of the network.
 
