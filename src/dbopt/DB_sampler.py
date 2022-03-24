@@ -40,8 +40,6 @@ class DB_sampler():
         Returns:
             jax.numpy.ndarray: the loss value
         """
-        print(points)
-        print(net)
         logits = net(points)
         
         if logits.ndim == 2:
