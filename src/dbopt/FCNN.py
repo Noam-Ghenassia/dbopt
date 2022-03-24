@@ -7,13 +7,16 @@ from jax import random
 from jax.experimental import stax
 from jax.experimental import optimizers
 from jax import jit, grad
+#from jax.nn import Elu, log_softmax
+#from flax.linen import Dense
 from jax.experimental.stax import Dense, Relu, LogSoftmax, Tanh, Sigmoid, Elu
+
 
 class FCNN():
     """A fully connected binary classifier with 5 hidden layers and Elu activation functions.
     """
     
-    def __init__(self, step_size = 0.01, num_epochs = 500, batch_size = 32,
+    def __init__(self, step_size = 0.01, num_epochs = 500, batch_size = 4,
                  momentum_mass = 0.9):
 
         self.init_random_params, self.predict = stax.serial(
@@ -22,7 +25,7 @@ class FCNN():
             Dense(10), Elu,
             Dense(10), Elu,
             Dense(10), Elu,
-            Dense(2), LogSoftmax)
+            Dense(2), LogSoftmax)  #log_softmax
         self.params = []
         self.rng = random.PRNGKey(0)
         self.step_size = step_size,
@@ -32,11 +35,11 @@ class FCNN():
     
     
     def _loss(self, params, batch):
-        """the loss function that is optimized during training.
+        """The loss function that is optimized during training.
 
         Args:
             params : the parameters of the network
-            batch (_type_): the batch over which the loss is to be computed
+            batch : the batch over which the loss is to be computed
 
         Returns:
             float: the loss value
@@ -90,19 +93,19 @@ class FCNN():
         while True:
             perm = rng.permutation(num_train)
             for i in range(num_batches):
-                batch_idx = perm[i * self.batch_size:(i + 1) * self.batch_size]
+                batch_idx = perm[i * self.batch_size[0]:(i + 1) * self.batch_size[0]]
                 yield data[batch_idx], self._one_hot(labels[batch_idx])
     
     @jit
     def _update(self, i, opt_state, batch, opt_update, get_params):
-        """This function updates the parameters of the network
+        """This function updates the parameters of the network.
 
         Args:
             i (int): the current training epoch
-            opt_state (jax.example_libraries.optimizers.OptimizerState): _description_
+            opt_state (jax.example_libraries.optimizers.OptimizerState): the current state of the network
             batch (jax.numpy.array): the batch used for the optimization step
             opt_update (function): _description_
-            get_params (function): _description_
+            get_params (function): accessor function for the network's parameters
 
         Returns:
             _type_: _description_
@@ -119,22 +122,24 @@ class FCNN():
             labels (jax.numpy.array): the labels
         """
         rng = npr.RandomState(0)
+        key = random.PRNGKey(2)
         num_train = data.shape[0]
-        num_complete_batches, leftover = divmod(num_train, self.batch_size)
+        num_complete_batches, leftover = divmod(num_train, self.batch_size[0])
         num_batches = num_complete_batches + bool(leftover)
         batches = self._data_stream(num_train, num_batches, data, labels, rng)
         
         input_shape = (-1, 2)
-        opt_init, opt_update, get_params = optimizers.adam(self.step_size)
-        _, init_params = self.init_random_params(rng, input_shape)
+        opt_init, opt_update, get_params = optimizers.adam(self.step_size[0])
+        _, init_params = self.init_random_params(key, input_shape)
         opt_state = opt_init(init_params)
         itercount = itertools.count()
         
         print("\nStarting training...")
-        for epoch in range(self.num_epochs):
+        for epoch in range(self.num_epochs[0]):
             start_time = time.time()
             for _ in range(num_batches):
-                opt_state = self._update(next(itercount), opt_state, next(batches))
+                opt_state = self._update(next(itercount), opt_state, next(batches),
+                                         opt_update, get_params)
                 #params = get_params(opt_state)
             epoch_time = time.time() - start_time
 
@@ -143,3 +148,4 @@ class FCNN():
                 train_acc = self._accuracy(self.params, (data, self._one_hot(labels)))
                 #test_acc = accuracy(params, (test_data, one_hot(test_labels)))
                 print('Epoch : ', epoch, ', Train accuracy : ', train_acc)
+                

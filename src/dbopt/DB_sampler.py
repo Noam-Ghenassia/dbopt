@@ -11,9 +11,8 @@ class DB_sampler():
     """
 
     def __init__(self, n_points=1000, epochs=1000,
-                 input_dim=2, min=-20., max=20.):
+                 input_dim=2, min=-2., max=2.):
         
-        #self.net = net
         self.key = random.PRNGKey(0)
         self.n_points = n_points
         self.min_x = min
@@ -27,6 +26,7 @@ class DB_sampler():
         Returns:
             jax.numpy.array: the points sampled from the latent space
         """
+        
         shape = (self.n_points, self.input_dim)
         return random.uniform(self.key, shape=shape, minval=self.min_x, maxval=self.max_x)
 
@@ -40,6 +40,7 @@ class DB_sampler():
         Returns:
             jax.numpy.ndarray: the loss value
         """
+
         logits = net(self.points)
         
         if logits.ndim == 2:
@@ -90,7 +91,7 @@ class DB_sampler():
 
         for epoch in range(epochs):
             value, opt_state = self._step(net, epoch, opt_state, opt_update, get_points)
-            points = get_points(opt_state)
+            self.points = get_points(opt_state)
             losses[epoch] = value
         
         #DELETE POINTS WITH BIG LOSS

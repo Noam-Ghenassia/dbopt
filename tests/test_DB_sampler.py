@@ -1,30 +1,25 @@
 import pytest
-#import dbopt.DB_sampler
 from dbopt.DB_sampler import DB_sampler
-from dbopt.skeleton import fib, main
+import jax.numpy as jnp
 
 __author__ = "Noam Ghenassia"
 __copyright__ = "Noam Ghenassia"
 __license__ = "MIT"
 
 
-def test_fib():
-    """API Tests"""
-    assert fib(1) == 1
-    assert fib(2) == 1
-    assert fib(7) == 13
-    with pytest.raises(AssertionError):
-        fib(-10)
+def test_random_sampling():
+    sampler = DB_sampler(n_points=30, input_dim=3, min=-2, max=1)
+    assert sampler.points.ndim == 2
+    assert sampler.points.shape[0] == 30
+    assert sampler.points.shape[1] == 3
+    assert jnp.min(sampler.points[:, 0]) >= -2
+    assert jnp.max(sampler.points[:, 2]) <= 1
 
 
-def test_main(capsys):
-    """CLI Tests"""
-    # capsys is a pytest fixture that allows asserts agains stdout/stderr
-    # https://docs.pytest.org/en/stable/capture.html
-    main(["7"])
-    captured = capsys.readouterr()
-    assert "The 7-th Fibonacci number is 13" in captured.out
-
-def test_DB_sampler():
-    x = dbopt.DB_sampler.DB_sampler(5, 15)#instancier objet ici
-    assert x.key == 15#tester le comportement de l'objet ici
+#def test_main(capsys):
+#    """CLI Tests"""
+#    # capsys is a pytest fixture that allows asserts agains stdout/stderr
+#    # https://docs.pytest.org/en/stable/capture.html
+#    main(["7"])
+#    captured = capsys.readouterr()
+#    assert "The 7-th Fibonacci number is 13" in captured.out
