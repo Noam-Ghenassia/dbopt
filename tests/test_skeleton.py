@@ -1,5 +1,5 @@
 import pytest
-
+import dbopt.DB_sampler
 from dbopt.skeleton import fib, main
 
 __author__ = "Noam Ghenassia"
@@ -23,3 +23,7 @@ def test_main(capsys):
     main(["7"])
     captured = capsys.readouterr()
     assert "The 7-th Fibonacci number is 13" in captured.out
+
+#def test_DB_sampler():
+#    x = dbopt.DB_sampler.DB_sampler(5, 15)#instancier objet ici
+#    assert x.key == 15#tester le comportement de l'objet ici
