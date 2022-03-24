@@ -23,3 +23,7 @@ print(jnp.exp(b))
 s = 5
 a = random.uniform(random.PRNGKey(0), shape=(s,))
 # %%
+
+# %%
+
+# %%

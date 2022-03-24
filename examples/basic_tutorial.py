@@ -1,3 +1,8 @@
+# %%
+from IPython import get_ipython  # type: ignore
+get_ipython().magic('load_ext autoreload')
+get_ipython().magic('autoreload 2')
+
 #%%
 from jax import random
 import matplotlib.pyplot as plt
@@ -60,3 +65,4 @@ nn.train(data, labels)
 
 
 # %%
+
