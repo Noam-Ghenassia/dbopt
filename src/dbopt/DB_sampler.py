@@ -30,7 +30,7 @@ class DB_sampler():
         shape = (self.n_points, self.input_dim)
         return random.uniform(self.key, shape=shape, minval=self.min_x, maxval=self.max_x)
 
-    def _loss(self, net, squaredDiff=False, return_losses=False):
+    def _loss(self, points, net, squaredDiff=False, return_losses=False):
         """A loss function that penalises points that lie far from the DB.
 
         Args:
@@ -40,8 +40,9 @@ class DB_sampler():
         Returns:
             jax.numpy.ndarray: the loss value
         """
-
-        logits = net(self.points)
+        print(points)
+        print(net)
+        logits = net(points)
         
         if logits.ndim == 2:
             if squaredDiff:
@@ -64,7 +65,7 @@ class DB_sampler():
         """Performs an optimization step.
         """
         
-        value, grads = value_and_grad(self._loss)(get_points(opt_state), net)
+        value, grads = value_and_grad(lambda x: self._loss(x, net))(get_points(opt_state))
         opt_state = opt_update(epoch, grads, opt_state)
         return value, opt_state
     
