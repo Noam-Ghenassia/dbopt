@@ -5,9 +5,9 @@ from jax.experimental.optimizers import adam
 import numpy as np
 
 class DB_sampler():
-    """This class allows to sample the descision boundary of a neural network.
-    
-    net : the neural network of which we want to sample the decision boundary.
+    """This class allows to sample the descision boundary of a neural network. The number of points
+    randomly sampled from the latent space should be inputed at class istanciation, while the
+    network whose decision boundary is to be sampled is passed as an argument to the sample function.
     """
 
     def __init__(self, n_points=1000, epochs=1000,
@@ -49,7 +49,7 @@ class DB_sampler():
                 losses = jnp.abs(logits[:, 0]-logits[:, 1])
         else :
             # We add this for the case where net isn't a neural network. In this case, the loss is
-            # minimized wherever net outputs 0.
+            # minimized wherever net outputs 0, i.e., at the 0-level set of net.
             if squaredDiff:
                 losses = logits**2
             else :
@@ -66,6 +66,9 @@ class DB_sampler():
         value, grads = value_and_grad(lambda x: self._loss(x, net))(get_points(opt_state))
         opt_state = opt_update(epoch, grads, opt_state)
         return value, opt_state
+    
+    def get_points(self):
+        return self.points
     
     def sample(self, net, lr=1e-2, epochs=1000, threshold=.2, delete_outliers=True):
         """The main function of the class. It samples the decision boundary of the
@@ -95,7 +98,7 @@ class DB_sampler():
         
         #DELETE POINTS WITH BIG LOSS
         if delete_outliers:
-            _, losses = self._loss(return_losses=True)
+            _, losses = self._loss(self.points, net, return_losses=True)
             indices = np.argwhere(losses > threshold)
             self.points = np.delete(self.points, indices, axis=0)
         

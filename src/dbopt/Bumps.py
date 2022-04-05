@@ -8,7 +8,8 @@ class Bumps():
     optimized in order to modify the homology of the graph's theta-level set.
     """
     
-    def level(self, x, theta=0):
+    #def level(self, x, theta=0):
+    def level(self, x, theta=0.75):
         """The model function.
 
         Args:
