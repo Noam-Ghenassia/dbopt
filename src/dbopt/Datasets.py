@@ -22,7 +22,7 @@ class Dataset_2D(ABC):
         """This methods plots the dataset on the figure passed as argument.
 
         Args:
-            figure (_type_): the pyplot figure on which the dataset is plotted.
+            figure (matplotlib.axes.Axes): the pyplot figure on which the dataset is plotted.
         """
         ind_0 = jnp.where(self.labels==0)
         ind_1 = jnp.where(self.labels==1)
@@ -39,12 +39,7 @@ class Dataset_2D(ABC):
 
 
 class Spiral(Dataset_2D):
-#class Spiral():
-    
-    #def __init__(self, n_points):
-    #    self.n_points = n_points
-    #    self.data, self.labels = self._create_dataset()
-    
+
     def __init__(self, n_points):
         super().__init__(n_points)
     
@@ -78,14 +73,3 @@ class Spiral(Dataset_2D):
         labels = labels.reshape(-1)
 
         return data, labels
-    
-    #def plot(self, figure):
-        """This methods plots the dataset on the figure passed as argument.
-
-        Args:
-            figure (_type_): the pyplot figure on which the dataset is plotted.
-        """
-        #ind_0 = jnp.where(self.labels==0)
-        #ind_1 = jnp.where(self.labels==1)
-        #figure.plot(self.data[ind_0, 0], self.data[ind_0, 1], 'bo',
-        #            self.data[ind_1, 0], self.data[ind_1, 1], 'ro')

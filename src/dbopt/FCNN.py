@@ -7,6 +7,7 @@ from jax import random
 from jax.experimental import stax
 from jax.experimental import optimizers
 from jax import jit, grad
+from jax.nn import softmax
 #from jax.nn import Elu, log_softmax
 #from flax.linen import Dense
 from jax.experimental.stax import Dense, Relu, LogSoftmax, Tanh, Sigmoid, Elu
@@ -109,10 +110,32 @@ class FCNN():
         Returns:
             _type_: _description_
         """
-        print("test")
         self.params = get_params(opt_state)
         return opt_update(i, grad(lambda x : self._loss(x, batch))(self.params), opt_state)
     
+    def plot_decision_boundary(self, ax, x_min=-10., x_max=10., y_min=-10., y_max=10.):
+        """This function allows to plot the network's decision boundary on a given figure.
+
+        Args:
+            ax (matplotlib.axes.Axes): the pyplot figure on which the dataset is plotted.
+            x_min (float, optional): lower bound of the x axis of the plot. Defaults to -10..
+            x_max (float, optional): high bound of the x axis of the plot. Defaults to 10..
+            y_min (float, optional): lower bound of the y axis of the plot. Defaults to -10..
+            y_max (float, optional): high bound of the y axis of the plot. Defaults to 10..
+        """
+        x = jnp.linspace(x_min, x_max, 220)
+        y = jnp.linspace(y_min, y_max, 220)
+        grid_x = jnp.meshgrid(x, y)[0].reshape(-1, 1)
+        grid_y = jnp.meshgrid(x, y)[1].reshape(-1, 1)
+        grid = jnp.concatenate([grid_x, grid_y], axis=1)
+
+        grid = jnp.expand_dims(grid, axis=1)
+        out = self.predict(self.params, grid)
+        out = np.squeeze(out, axis=1)
+        out = softmax(out, axis=1)[: , 1].reshape(len(x), -1)
+        
+        ax.contourf(jnp.meshgrid(x, y)[0], jnp.meshgrid(x, y)[1], out)
+
     def train(self, data, labels):
         """The main fnction of the class. It trains the neural network on the dataset
         consisting of data and labels.
