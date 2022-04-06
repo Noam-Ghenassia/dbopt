@@ -33,7 +33,7 @@ class Dataset_2D(ABC):
         """Accessor method.
 
         Returns:
-            (jnp.array, jnp.array): the data and labels from the dataset.
+            (jnp.array, jnp.array): the data and labels of the dataset.
         """
         return self.data, self.labels
 
