@@ -28,15 +28,16 @@ bumps.plot(ax)
 bumps = Bumps()
 sampler = DB_sampler()
 
-fig, ax = plt.subplots()
-bumps.plot(ax)
+fig, (ax1, ax2) = plt.subplots(2, figsize=(11, 11))
+bumps.plot(ax1)
 pts = sampler.get_points()
-ax.scatter(pts[:, 0], pts[:, 1], color='blue')
+ax1.scatter(pts[:, 0], pts[:, 1], color='blue')
 
 sampler.sample(bumps.level)
 
 pts = sampler.get_points()
-ax.scatter(pts[:, 0], pts[:, 1], color='red')
+bumps.plot(ax2)
+ax2.scatter(pts[:, 0], pts[:, 1], color='red')
 
 
 # %%

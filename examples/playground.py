@@ -4,26 +4,11 @@ import jax.numpy as jnp
 import jax.random as random
 
 #%%
-a = np.array([0, 1, 2])
-b = jnp.array([0, 1, 2])
+a = jnp.array([[1, 1, 1], [2, 2, 2], [3, 3, 3], [4, 4, 4]])
+print(a)
+b = jnp.linalg.norm(a, axis=1)
+print(b)
+print(jnp.divide(a, b[:, None]))
 
-print(np.argwhere(a < .2))
-print(jnp.argwhere(b < .2))
-# %%
-c = jnp.array([[0, 1, 2],[3, 4, 5]])
-print(a.ndim)
-# %%
-print(jnp.abs(b))
-# %%
-print(jnp.argmax(c, axis=1))
-# %%
-print(jnp.exp(b))
-# %%
-
-s = 5
-a = random.uniform(random.PRNGKey(0), shape=(s,))
-# %%
-
-# %%
 
 # %%

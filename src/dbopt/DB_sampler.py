@@ -30,7 +30,7 @@ class DB_sampler():
         shape = (self.n_points, self.input_dim)
         return random.uniform(self.key, shape=shape, minval=self.min_x, maxval=self.max_x)
 
-    def _loss(self, points, net, squaredDiff=False, return_losses=False):
+    def _loss(self, points, theta, net, squaredDiff=True, return_losses=False):
         """A loss function that penalises points that lie far from the DB.
 
         Args:
@@ -40,7 +40,7 @@ class DB_sampler():
         Returns:
             jax.numpy.ndarray: the loss value
         """
-        logits = net(points)
+        logits = net(points, theta)
         
         if logits.ndim == 2:
             if squaredDiff:
@@ -70,12 +70,14 @@ class DB_sampler():
     def get_points(self):
         return self.points
     
-    def sample(self, net, lr=1e-2, epochs=1000, threshold=.2, delete_outliers=True):
+    def sample(self, net, points=None, lr=1e-2, epochs=1000, threshold=.2, delete_outliers=True):
         """The main function of the class. It samples the decision boundary of the
         network passed as argument to the DB_sampler.
 
         Args:
             net (function): the network of which the decision boundary is to be sampled.
+            points(jnp.array): if None, then the points pushed to the DB are the class attribute 'points'. Else, the
+            provided points are pushed to the DB.
             lr (float, optional): the learning rate applied by the optimizer. Defaults to 1e-2.
             epochs (int, optional): the number of optimization epochs. Defaults to 1000.
             threshold (float, optional): the loss value above which the points are deleted after training. Defaults to .2.
@@ -86,20 +88,40 @@ class DB_sampler():
             jax.numpy.ndarray: a sampling of the decision boundary obtained by optimizing a loss that compares the logits.
         """
         
-        opt_init, opt_update, get_points = adam(lr)
-        opt_state = opt_init(self.points)
-        
-        losses = np.empty((epochs,))
+        if points==None:
+            opt_init, opt_update, get_points = adam(lr)
+            opt_state = opt_init(self.points)
+            
+            losses = np.empty((epochs,))
 
-        for epoch in range(epochs):
-            value, opt_state = self._step(net, epoch, opt_state, opt_update, get_points)
-            self.points = get_points(opt_state)
-            losses[epoch] = value
+            for epoch in range(epochs):
+                value, opt_state = self._step(net, epoch, opt_state, opt_update, get_points)
+                self.points = get_points(opt_state)
+                losses[epoch] = value
+            
+            #DELETE POINTS WITH BIG LOSS
+            if delete_outliers:
+                _, losses = self._loss(self.points, net, return_losses=True)
+                indices = np.argwhere(losses > threshold)
+                self.points = np.delete(self.points, indices, axis=0)
+            
+            return self.points
         
-        #DELETE POINTS WITH BIG LOSS
-        if delete_outliers:
-            _, losses = self._loss(self.points, net, return_losses=True)
-            indices = np.argwhere(losses > threshold)
-            self.points = np.delete(self.points, indices, axis=0)
-        
-        return self.points
+        else :
+            opt_init, opt_update, get_points = adam(lr)
+            opt_state = opt_init(points)
+            
+            losses = np.empty((epochs,))
+
+            for epoch in range(epochs):
+                value, opt_state = self._step(net, epoch, opt_state, opt_update, get_points)
+                points = get_points(opt_state)
+                losses[epoch] = value
+            
+            #DELETE POINTS WITH BIG LOSS
+            if delete_outliers:
+                _, losses = self._loss(points, net, return_losses=True)
+                indices = np.argwhere(losses > threshold)
+                points = np.delete(points, indices, axis=0)
+            
+            return points

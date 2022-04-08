@@ -1,0 +1,121 @@
+import numpy as np
+from jax import numpy as jnp
+from jax import jacfwd
+from jax.experimental.optimizers import adam
+from jax import grad
+import jaxopt
+
+from dbopt import persistent_gradient as pg
+from dbopt.DB_sampler import DB_sampler
+
+
+class DB_Top_opt():
+    """This class allows to modify the parameters of a function (typically, the
+    weights of a neural network) in order to optimize the homology of the
+    simplicial complex constructed on a set of points sampled from the 0-level
+    set of that function (or the decision boundary of the neural network). The
+    optimization minimizes a user provided function of the persistence diagram of
+    the filtration of the point cloud.
+    
+    Note : a future improvement would be to add the ability for the user to only
+    provide a set of Betti numbers instead of the actual function to optimize.
+    """
+    
+    def __init__(self, net, lr=1e-2, num_epochs=150):
+        self.net = net
+        self.lr = lr
+        self.num_epochs = num_epochs
+        self.sampler = DB_sampler()
+        self.pg = pg.PersistentGradient()
+        self.x = self.sampler.sample(self.net)
+        
+    def _normal_unit_vectors(self, net):
+        """This funcrion returns a set of vectors that are normal to the decision boundary
+        at the points that were sampled from it by the sampler.
+
+        Args:
+            net (function): the network that is being optimized.
+
+        Returns:
+            jnp.array: an n*d matrix with rows the normal vectors of the decision boundary
+            evaluated at the points sampled by the sampler.
+        """
+        normal_vectors = jacfwd(lambda x : net(x))(self.x)
+        norms = jnp.linalg.norm(normal_vectors, axis=1)
+        return jnp.divide(normal_vectors, norms[:, None])
+        
+    def _degree_of_freedom(self, net, t:jnp.array):
+        """This function gives a new set of points that depend on the points initially sampled
+        by the sampler, but that only depend on a single real coordinate each. These new
+        points are bound to move along a line that is normal to the decision boundary
+        and passes through one of the original points (each).
+
+        Args:
+            net (function): the network that is being optimized
+            t (jnp.array): the parameters that define the position of the new points.
+
+        Returns:
+            jnp.array: the new points.
+        """
+        return self.x + jnp.multiply(t, self._normal_unit_vectors(net))
+
+    def _optimality_condition(self, t, theta, net):
+        """This function is the optimality condition that imlicitly defines
+        points*(theta) : for a given theta, the optimality condition is zero
+        when the points lie on the decision boundary.
+
+        Args:
+            t (jnp.array): the coordinates of the new points along the normal vectors. In
+            the setting of jaxopt, these are the variables optimized in the inner
+            optimization problem.
+            theta (jnp.array): the parameters of the network.
+            net (function): the function parametrized by theta.
+
+        Returns:
+            float: the points loss, i.e., the sum of the squared distances to the DB
+        """
+        new_points = self._degree_of_freedom(net, t, theta, net)
+        return self.sampler._loss(new_points, theta, net)
+    
+    @custom_root(_optimality_condition)
+    def _inner_problem(self, t, theta, net, n_epochs=30, lr=1e-2):
+        """This function is the inner optimization problem. It simply samples the
+        decision boundary of the network, but with the custom root decorator it
+        is possible to get the jacobian of the optimal points wrt the parameters
+        of net (theta), which will be necessary in the chain rule that allows to differentiate
+        the topological loss wrt theta.
+
+        Args:
+            t (jnp.array): the parameters that define the position of the new points
+            theta (jnp.array): the points that sample the decision boundary
+            net (function): the function parametrized by theta
+        """
+        new_points = self._degree_of_freedom(net, t, theta, net)
+        return self.sampler.sample(net, new_points, epochs=self.num_epochs, delete_outliers=False)
+        
+    
+    def toploss(self, theta):
+        t_init = jnp.zeros_like(self.x[:, 0])
+        new_points = self._inner_problem(t_init, theta)
+        return self.pg.single_cycle(new_points)
+    
+    def optimize(self, theta, net):
+        """This is the main function of the class. It allows to optimize the
+        topological loss of the decision boundary of net by modifying its parameter(s)
+        theta. The gradient of the topological loss wrt the points is computed by the
+        persistent gradient class, while the dependency of the points on the parameters
+        of the network is computed by differentiating the output of the _inner_problem
+        wrt theta.
+        
+        Note : a future improvement is to accept a loss function as an additional argument.
+        The loss will be added to the topological loss in order to optimize not only the
+        decision boundary, but also the accuracy of the network.
+
+        Args:
+            theta (): the parameter we wish to optimize
+            net (function): the function (neural network) parametrized by theta
+        """
+        
+        for _ in range(self.num_epochs):
+            grads = grad(lambda theta: self.toploss(theta))(theta)     #in later versions this should include cross entropy
+            theta = theta -self.lr*grads

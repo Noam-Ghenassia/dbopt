@@ -137,7 +137,7 @@ class FCNN():
         ax.contourf(jnp.meshgrid(x, y)[0], jnp.meshgrid(x, y)[1], out)
 
     def train(self, data, labels):
-        """The main fnction of the class. It trains the neural network on the dataset
+        """The main function of the class. It trains the neural network on the dataset
         consisting of data and labels.
 
         Args:

@@ -1,5 +1,6 @@
 from gph.python import ripser_parallel
 import numpy as np
+from jax import numpy as jnp
 
 class PersistentGradient():
     '''This class computes the gradient of the persistence
@@ -57,7 +58,7 @@ class PersistentGradient():
         The persistence diagram ca be readily used for 
         gradient descent.
         Args:
-            X (np.array): 
+            X (jnp.array):
                 point cloud
         Returns:
             list of shape (n, 3):
@@ -65,7 +66,7 @@ class PersistentGradient():
                 first 2 dimensions) where the last dimension 
                 contains the homology dimension
         """
-        output = ripser_parallel(X.detach().numpy(),
+        output = ripser_parallel(np.asarray(X),
                                  maxdim=max(self.homology_dimensions),
                                  thresh=self.max_edge_length,
                                  coeff=2,
@@ -75,35 +76,38 @@ class PersistentGradient():
                                  return_generators=True)
 
         persistence_pairs = []
-        #print(output["gens"])
         for dim in self.homology_dimensions:
             if dim == 0:
                 # x[1] and x[2] are the indices of the vertices at the ends of the
                 # 1D-simplex that killed a connected component. Therefore, the
                 # euclidean distance between them is the filtratio value at which
                 # this CC dies.
-                persistence_pairs += [(0, torch.norm(X[x[1]]-X[x[2]]),
+                persistence_pairs += [(0, jnp.norm(X[x[1]]-X[x[2]]),
                                       0) for x in output["gens"][dim]]
             else:
                 # x[0] and x[1] are the indices of the extremities of the edge that,
                 # when added, creates a new features in the homology of dimension dim.
                 # Similarly, x[2] and [3] are the indices of the edge that kills this feature.
-                persistence_pairs += [(torch.norm(X[x[1]]-X[x[0]]), 
-                                      torch.norm(X[x[3]]-X[x[2]]), 
+                persistence_pairs += [(jnp.norm(X[x[1]]-X[x[0]]), 
+                                      jnp.norm(X[x[3]]-X[x[2]]), 
                                       dim) for x in output["gens"][1][dim-1]]
         return persistence_pairs
     
-    """def persistence_function(self, X: torch.Tensor) -> torch.Tensor:
-        This is the Loss function to optimise.
-        $L=-\sum_i^p |\epsilon_{i2}-\epsilon_{i1}|+
-        \lambda \sum_{x in X} ||x||_2^2$
-        It is composed of a regularisation term and a
-        function on the filtration values that is (p,q)-permutation
-        invariant.
-        out = 0
+    
+    def single_cycle(self, X):
+        """This is an example of a user provided function of persistence, that is
+        minimized when the homology has exactly one significant feature in H1.
 
-        persistence_array = self._computing_persistence_with_gph(X)
-        for item in persistence_array:
-            out += item[1]-item[0]
-        reg = (X**2).sum()  # regularisation term
-        return -out + self.zeta*reg  # maximise persistence"""
+        Args:
+            pers_diag (list): the persistence diagram that should be optimized
+        """
+
+        pers_diag = self._computing_persistence_with_gph(X)
+        H1 = pers_diag[pers_diag[:, 2]==1]
+        lifetimes = H1[:, 1] - H1[:, 0]
+        largest = jnp.argmax(lifetimes)
+        largest_cycle = lifetimes[largest]
+        other_cycles = jnp.delete(lifetimes, largest)
+        return jnp.sum(other_cycles**2) - largest_cycle**2
+        
+
