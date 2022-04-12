@@ -2,7 +2,8 @@ import numpy as np
 from jax import numpy as jnp
 from jax import grad
 from jax import jacfwd
-from jax.experimental.optimizers import adam
+#from jax.experimental.optimizers import adam
+import optax
 from jaxopt import implicit_diff
 
 
@@ -23,12 +24,11 @@ class DB_Top_opt():
     """
     
     def __init__(self, net, lr=1e-2, num_epochs=150):
-        self.net = net
         self.lr = lr
         self.num_epochs = num_epochs
         self.sampler = DB_sampler()
         self.pg = pg.PersistentGradient()
-        self.x = self.sampler.sample(self.net)
+        self.x = self.sampler.sample(net)
         
     def _normal_unit_vectors(self, net):
         """This funcrion returns a set of vectors that are normal to the decision boundary
@@ -126,7 +126,15 @@ class DB_Top_opt():
             theta (jnp.array): the parameter we wish to optimize
             net (function): the function (neural network) parametrized by theta
         """
+
+        optimizer = optax.adam(self.lr)
+        params = {'theta': theta}
+        opt_state = optimizer.init(params)
+        loss = lambda params: self.toploss(params)     #in later versions this should include cross entropy
+        grads = grad(loss)(params)
+        updates, opt_state = optimizer.update(grads, opt_state)
+        params = optax.apply_updates(params, updates)
+
         
-        for _ in range(self.num_epochs):
-            grads = grad(lambda theta: self.toploss(theta))(theta)     #in later versions this should include cross entropy
-            theta = theta -self.lr*grads
+       
+       
