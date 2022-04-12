@@ -1,9 +1,10 @@
 import numpy as np
 from jax import numpy as jnp
+from jax import grad
 from jax import jacfwd
 from jax.experimental.optimizers import adam
-from jax import grad
-import jaxopt
+from jaxopt import implicit_diff
+
 
 from dbopt import persistent_gradient as pg
 from dbopt.DB_sampler import DB_sampler
@@ -77,7 +78,7 @@ class DB_Top_opt():
         new_points = self._degree_of_freedom(net, t, theta, net)
         return self.sampler._loss(new_points, theta, net)
     
-    @custom_root(_optimality_condition)
+    @implicit_diff.custom_root(_optimality_condition)
     def _inner_problem(self, t, theta, net, n_epochs=30, lr=1e-2):
         """This function is the inner optimization problem. It simply samples the
         decision boundary of the network, but with the custom root decorator it
@@ -91,10 +92,20 @@ class DB_Top_opt():
             net (function): the function parametrized by theta
         """
         new_points = self._degree_of_freedom(net, t, theta, net)
-        return self.sampler.sample(net, new_points, epochs=self.num_epochs, delete_outliers=False)
+        return self.sampler.sample(net, new_points, lr=lr, epochs=n_epochs, delete_outliers=False)
         
     
     def toploss(self, theta):
+        """This the topological loss that is optimized by the class. It depends on the
+        value of theta.
+
+        Args:
+            theta (jnp.array): the parameter(s) of the funcrion of which we optimize the
+            decision boundary's homology.
+
+        Returns:
+            jnp.array: the value of the topological loss.
+        """
         t_init = jnp.zeros_like(self.x[:, 0])
         new_points = self._inner_problem(t_init, theta)
         return self.pg.single_cycle(new_points)
@@ -112,7 +123,7 @@ class DB_Top_opt():
         decision boundary, but also the accuracy of the network.
 
         Args:
-            theta (): the parameter we wish to optimize
+            theta (jnp.array): the parameter we wish to optimize
             net (function): the function (neural network) parametrized by theta
         """
         
