@@ -12,3 +12,8 @@ print(jnp.divide(a, b[:, None]))
 
 
 # %%
+a = 2.
+b = jnp.array(a)
+print(b)
+print(type(b))
+# %%

@@ -24,13 +24,17 @@ class DB_Top_opt():
     """
     
     def __init__(self, net, lr=1e-2, num_epochs=150):
+        self.net = net
         self.lr = lr
         self.num_epochs = num_epochs
         self.sampler = DB_sampler()
         self.pg = pg.PersistentGradient()
-        self.x = self.sampler.sample(net)
+        self.x = self.sampler.sample(0., net)   # should use the actual parameters of the net, not 0 !!!
+    
+    def get_points(self):
+        return self.x
         
-    def _normal_unit_vectors(self, net):
+    def _normal_unit_vectors(self, net, theta):
         """This funcrion returns a set of vectors that are normal to the decision boundary
         at the points that were sampled from it by the sampler.
 
@@ -41,11 +45,11 @@ class DB_Top_opt():
             jnp.array: an n*d matrix with rows the normal vectors of the decision boundary
             evaluated at the points sampled by the sampler.
         """
-        normal_vectors = jacfwd(lambda x : net(x))(self.x)
+        normal_vectors = jacfwd(lambda x : net(x, theta))(self.x, theta)
         norms = jnp.linalg.norm(normal_vectors, axis=1)
         return jnp.divide(normal_vectors, norms[:, None])
         
-    def _degree_of_freedom(self, net, t:jnp.array):
+    def _degree_of_freedom(self, t:jnp.array, net, theta):
         """This function gives a new set of points that depend on the points initially sampled
         by the sampler, but that only depend on a single real coordinate each. These new
         points are bound to move along a line that is normal to the decision boundary
@@ -58,7 +62,7 @@ class DB_Top_opt():
         Returns:
             jnp.array: the new points.
         """
-        return self.x + jnp.multiply(t, self._normal_unit_vectors(net))
+        return self.x + jnp.multiply(t, self._normal_unit_vectors(net, theta))
 
     def _optimality_condition(self, t, theta, net):
         """This function is the optimality condition that imlicitly defines
@@ -75,7 +79,7 @@ class DB_Top_opt():
         Returns:
             float: the points loss, i.e., the sum of the squared distances to the DB
         """
-        new_points = self._degree_of_freedom(net, t, theta)
+        new_points = self._degree_of_freedom(t, net, theta)
         return self.sampler._loss(new_points, theta, net)
     
     @implicit_diff.custom_root(_optimality_condition)
@@ -91,11 +95,10 @@ class DB_Top_opt():
             theta (jnp.array): the points that sample the decision boundary
             net (function): the function parametrized by theta
         """
-        new_points = self._degree_of_freedom(net, t, theta, net)
+        new_points = self._degree_of_freedom(t, net, theta)
         return self.sampler.sample(net, new_points, lr=lr, epochs=n_epochs, delete_outliers=False)
         
     
-    #def toploss(self, theta):
     def toploss(self, theta, net):
         """This the topological loss that is optimized by the class. It depends on the
         value of theta.
@@ -108,11 +111,10 @@ class DB_Top_opt():
             jnp.array: the value of the topological loss.
         """
         t_init = jnp.zeros_like(self.x[:, 0])
-        #new_points = self._inner_problem(t_init, theta)
         new_points = self._inner_problem(t_init, theta, net)
         return self.pg.single_cycle(new_points)
     
-    def optimize(self, theta, net):
+    def optimize(self, theta_init, n_epochs):
         """This is the main function of the class. It allows to optimize the
         topological loss of the decision boundary of net by modifying its parameter(s)
         theta. The gradient of the topological loss wrt the points is computed by the
@@ -129,14 +131,17 @@ class DB_Top_opt():
             net (function): the function (neural network) parametrized by theta
         """
 
+        theta = jnp.array(theta_init)
         optimizer = optax.adam(self.lr)
         params = {'theta': theta}
         opt_state = optimizer.init(params)
-        #loss = lambda params: self.toploss(params)     #in later versions this should include cross entropy
-        loss = lambda params: self.toploss(params, net)
-        grads = grad(loss)(params)
-        updates, opt_state = optimizer.update(grads, opt_state)
-        params = optax.apply_updates(params, updates)
+        loss = lambda params: self.toploss(params, self.net)     #in later versions this should include cross entropy
+        for epoch in range(n_epochs):
+            grads = grad(loss)(params)
+            updates, opt_state = optimizer.update(grads, opt_state)
+            params = optax.apply_updates(params, updates)
+            if epoch % 5 ==0:
+                self.x = params['theta']
 
         
        
