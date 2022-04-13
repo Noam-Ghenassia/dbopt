@@ -81,3 +81,5 @@ opt.optimize(theta_init=0., n_epochs=16)
 points = opt.get_points()
 bumps.plot(ax2)
 ax2.scatter(points[:, 0], points[:, 1], color='red')
+
+# %%
