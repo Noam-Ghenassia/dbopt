@@ -75,7 +75,7 @@ class DB_Top_opt():
         Returns:
             float: the points loss, i.e., the sum of the squared distances to the DB
         """
-        new_points = self._degree_of_freedom(net, t, theta, net)
+        new_points = self._degree_of_freedom(net, t, theta)
         return self.sampler._loss(new_points, theta, net)
     
     @implicit_diff.custom_root(_optimality_condition)
@@ -95,7 +95,8 @@ class DB_Top_opt():
         return self.sampler.sample(net, new_points, lr=lr, epochs=n_epochs, delete_outliers=False)
         
     
-    def toploss(self, theta):
+    #def toploss(self, theta):
+    def toploss(self, theta, net):
         """This the topological loss that is optimized by the class. It depends on the
         value of theta.
 
@@ -107,7 +108,8 @@ class DB_Top_opt():
             jnp.array: the value of the topological loss.
         """
         t_init = jnp.zeros_like(self.x[:, 0])
-        new_points = self._inner_problem(t_init, theta)
+        #new_points = self._inner_problem(t_init, theta)
+        new_points = self._inner_problem(t_init, theta, net)
         return self.pg.single_cycle(new_points)
     
     def optimize(self, theta, net):
@@ -130,7 +132,8 @@ class DB_Top_opt():
         optimizer = optax.adam(self.lr)
         params = {'theta': theta}
         opt_state = optimizer.init(params)
-        loss = lambda params: self.toploss(params)     #in later versions this should include cross entropy
+        #loss = lambda params: self.toploss(params)     #in later versions this should include cross entropy
+        loss = lambda params: self.toploss(params, net)
         grads = grad(loss)(params)
         updates, opt_state = optimizer.update(grads, opt_state)
         params = optax.apply_updates(params, updates)

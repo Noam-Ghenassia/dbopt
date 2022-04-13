@@ -8,7 +8,7 @@ class Bumps():
     optimized in order to modify the homology of the graph's theta-level set.
     """
     
-    def level(self, x, theta=0.75):
+    def level(self, x, theta=0):
         """The model function.
 
         Args:
@@ -20,7 +20,7 @@ class Bumps():
         """
         a = jnp.exp(-1.5*((x[:, 0]-1)**2 + x[:, 1]**2))
         b = jnp.exp(-1.5*((x[:, 0]+1)**2 + x[:, 1]**2))
-        return a+b-theta
+        return a+b-theta-.75
     
     def plot(self, figure, x_min=-2., x_max=2., y_min=-2., y_max=2.):
         """This function allows to plot the bumps function on a given figure.
