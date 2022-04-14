@@ -35,7 +35,7 @@ class DB_Top_opt():
         return self.x
         
     def _normal_unit_vectors(self, net, theta):
-        """This funcrion returns a set of vectors that are normal to the decision boundary
+        """This function returns a set of vectors that are normal to the decision boundary
         at the points that were sampled from it by the sampler.
 
         Args:
@@ -65,7 +65,7 @@ class DB_Top_opt():
         return self.x + jnp.multiply(t, self._normal_unit_vectors(net, theta))
 
     def _optimality_condition(self, t, theta, net):
-        """This function is the optimality condition that imlicitly defines
+        """This function is the optimality condition that implicitly defines
         points*(theta) : for a given theta, the optimality condition is zero
         when the points lie on the decision boundary.
 
@@ -136,10 +136,15 @@ class DB_Top_opt():
         params = {'theta': theta}
         opt_state = optimizer.init(params)
         loss = lambda params: self.toploss(params, self.net)     #in later versions this should include cross entropy
+        
         for epoch in range(n_epochs):
             grads = grad(loss)(params)
             updates, opt_state = optimizer.update(grads, opt_state)
             params = optax.apply_updates(params, updates)
+            
+            # the points that were initially sampled by the sampler should be frequently updated.
+            # every 5 epochs we set them so the value of new_points, that is, the intersections
+            # of the normal lines with the DB given by the current value of theta.
             if epoch % 5 ==0:
                 self.x = params['theta']
 
