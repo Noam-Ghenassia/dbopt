@@ -1,10 +1,10 @@
 import numpy as np
 from jax import numpy as jnp
-from jax import grad
-from jax import jacfwd
+from jax import jit, jacfwd, grad
 #from jax.experimental.optimizers import adam
 import optax
 from jaxopt import implicit_diff
+from functools import partial
 
 
 from dbopt import persistent_gradient as pg
@@ -30,10 +30,12 @@ class DB_Top_opt():
         self.sampler = DB_sampler()
         self.pg = pg.PersistentGradient()
         self.x = self.sampler.sample(0., net)   # should use the actual parameters of the net, not 0 !!!
+                                                # This might be done by introducing accessor methods in FCNN.
     
     def get_points(self):
         return self.x
-        
+    
+    @partial(jit, static_argnums=(0,))
     def _normal_unit_vectors(self, net, theta):
         """This function returns a set of vectors that are normal to the decision boundary
         at the points that were sampled from it by the sampler.
@@ -48,7 +50,8 @@ class DB_Top_opt():
         normal_vectors = jacfwd(lambda x : net(x, theta))(self.x, theta)
         norms = jnp.linalg.norm(normal_vectors, axis=1)
         return jnp.divide(normal_vectors, norms[:, None])
-        
+    
+    @partial(jit, static_argnums=(0,))
     def _degree_of_freedom(self, t:jnp.array, net, theta):
         """This function gives a new set of points that depend on the points initially sampled
         by the sampler, but that only depend on a single real coordinate each. These new
@@ -64,6 +67,7 @@ class DB_Top_opt():
         """
         return self.x + jnp.multiply(t, self._normal_unit_vectors(net, theta))
 
+    @partial(jit, static_argnums=(0,))
     def _optimality_condition(self, t, theta, net):
         """This function is the optimality condition that implicitly defines
         points*(theta) : for a given theta, the optimality condition is zero
@@ -82,7 +86,27 @@ class DB_Top_opt():
         new_points = self._degree_of_freedom(t, net, theta)
         return self.sampler._loss(new_points, theta, net)
     
+    #@staticmethod
+    #def _optimality_condition(t, theta, net):
+        """This function is the optimality condition that implicitly defines
+        points*(theta) : for a given theta, the optimality condition is zero
+        when the points lie on the decision boundary.
+
+        Args:
+            t (jnp.array): the coordinates of the new points along the normal vectors. In
+            the setting of jaxopt, these are the variables optimized in the inner
+            optimization problem.
+            theta (jnp.array): the parameters of the network.
+            net (function): the function parametrized by theta.
+
+        Returns:
+            float: the points loss, i.e., the sum of the squared distances to the DB
+        """
+    #    new_points = self._degree_of_freedom(t, net, theta)
+    #    return self.sampler._loss(new_points, theta, net)
+    
     @implicit_diff.custom_root(_optimality_condition)
+    @partial(jit, static_argnums=(0,))
     def _inner_problem(self, t, theta, net, n_epochs=30, lr=1e-2):
         """This function is the inner optimization problem. It simply samples the
         decision boundary of the network, but with the custom root decorator it
@@ -97,8 +121,25 @@ class DB_Top_opt():
         """
         new_points = self._degree_of_freedom(t, net, theta)
         return self.sampler.sample(net, new_points, lr=lr, epochs=n_epochs, delete_outliers=False)
-        
     
+    #@implicit_diff.custom_root(_optimality_condition)
+    #@staticmethod
+    #def _inner_problem(t, theta, net, n_epochs=30, lr=1e-2):
+        """This function is the inner optimization problem. It simply samples the
+        decision boundary of the network, but with the custom root decorator it
+        is possible to get the jacobian of the optimal points wrt the parameters
+        of net (theta), which will be necessary in the chain rule that allows to differentiate
+        the topological loss wrt theta.
+
+        Args:
+            t (jnp.array): the parameters that define the position of the new points
+            theta (jnp.array): the points that sample the decision boundary
+            net (function): the function parametrized by theta
+        """
+    #    new_points = _degree_of_freedom(t, net, theta)
+    #    return sampler.sample(net, new_points, lr=lr, epochs=n_epochs, delete_outliers=False)
+        
+    @partial(jit, static_argnums=(0,))
     def toploss(self, theta, net):
         """This the topological loss that is optimized by the class. It depends on the
         value of theta.

@@ -1,4 +1,6 @@
 from jax import numpy as jnp
+from jax import jit
+from functools import partial
 import numpy as np
 import matplotlib.pyplot
 
@@ -8,8 +10,12 @@ class Bumps():
     optimized in order to modify the homology of the graph's theta-level set.
     """
     
+    @partial(jit, static_argnums=(0,))
     def level(self, x, theta=0):
-        """The model function.
+        """The model function. It is the sum of two gaussian kernels centered at (0, -1) and (0, 1),
+        to which we subtract (0.75 + theta). Theta can be viewed as a hyperparameter of the function,
+        and changing its value modifies the homology of the 0-level set (by analogy to the weights of
+        a neural network, that we can change to modify the homology of the decision boundary).
 
         Args:
             x (numpy.array): the points over which the function is evaluated.
