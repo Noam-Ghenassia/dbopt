@@ -23,11 +23,11 @@ class DB_Top_opt():
     provide a set of Betti numbers instead of the actual function to optimize.
     """
     
-    def __init__(self, net, lr=1e-2, num_epochs=150):
+    def __init__(self, net, n_sampling, lr=1e-2, num_epochs=150):
         self.net = net
         self.lr = lr
         self.num_epochs = num_epochs
-        self.sampler = DB_sampler()
+        self.sampler = DB_sampler(n_points=n_sampling)
         self.pg = pg.PersistentGradient()
         self.x = self.sampler.sample(0., net)   # should use the actual parameters of the net, not 0 !!!
                                                 # This might be done by introducing accessor methods in FCNN and bumps.
@@ -36,7 +36,7 @@ class DB_Top_opt():
         return self.x
     
     @partial(jit, static_argnums=(0,))
-    def _normal_unit_vectors(self, net, theta):
+    def _normal_unit_vectors(self, theta):
         """This function returns a set of vectors that are normal to the decision boundary
         at the points that were sampled from it by the sampler.
 
@@ -47,25 +47,26 @@ class DB_Top_opt():
             jnp.array: an n*d matrix with rows the normal vectors of the decision boundary
             evaluated at the points sampled by the sampler.
         """
-        normal_vectors = jacfwd(lambda x : net(x, theta))(self.x, theta)
+        normal_vectors = jacfwd(lambda x : self.net(x, theta))(self.x, theta)
         norms = jnp.linalg.norm(normal_vectors, axis=1)
         return jnp.divide(normal_vectors, norms[:, None])
     
     @partial(jit, static_argnums=(0,))
-    def _degree_of_freedom(self, t:jnp.array, net, theta):
+    def _degree_of_freedom(self, t:jnp.array, theta):
         """This function gives a new set of points that depend on the points initially sampled
         by the sampler, but that only depend on a single real coordinate each. These new
         points are bound to move along a line that is normal to the decision boundary
-        and passes through one of the original points (each).
+        and passes through one of the original points (each). When t=0, the returned points
+        equal the old ones.
 
         Args:
-            net (function): the network that is being optimized
             t (jnp.array): the parameters that define the position of the new points.
+            net (function): the network that is being optimized
 
         Returns:
             jnp.array: the new points.
         """
-        return self.x + jnp.multiply(t, self._normal_unit_vectors(net, theta))
+        return self.x + jnp.multiply(t, self._normal_unit_vectors(self.net, theta))
 
     @partial(jit, static_argnums=(0,))
     def _optimality_condition(self, t, theta, net):
@@ -89,8 +90,8 @@ class DB_Top_opt():
     @implicit_diff.custom_root(_optimality_condition)
     @partial(jit, static_argnums=(0,))
     def _inner_problem(self, t, theta, net, n_epochs=30, lr=1e-2):
-        """This function is the inner optimization problem. It simply samples the
-        decision boundary of the network, but with the custom root decorator it
+        """This function is the inner optimization problem. It simply samples (with the new
+        points) the decision boundary of the network, but with the custom root decorator it
         is possible to get the jacobian of the optimal points wrt the parameters
         of net (theta), which will be necessary in the chain rule that allows to differentiate
         the topological loss wrt theta.
@@ -135,7 +136,7 @@ class DB_Top_opt():
             theta (jnp.array): the parameter we wish to optimize
             net (function): the function (neural network) parametrized by theta
         """
-
+        
         theta = jnp.array(theta_init)
         optimizer = optax.adam(self.lr)
         params = {'theta': theta}
@@ -154,7 +155,10 @@ class DB_Top_opt():
                 self.x = params['theta']
 
         
-       
+
+
+
+#################################################################################################
 
     #@staticmethod
     #def _optimality_condition(t, theta, net):
