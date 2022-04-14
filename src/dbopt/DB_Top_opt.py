@@ -69,7 +69,7 @@ class DB_Top_opt():
         return self.x + jnp.multiply(t, self._normal_unit_vectors(self.net, theta))
 
     @partial(jit, static_argnums=(0,))
-    def _optimality_condition(self, t, theta, net):
+    def _optimality_condition(self, t, theta):
         """This function is the optimality condition that implicitly defines
         points*(theta) : for a given theta, the optimality condition is zero
         when the points lie on the decision boundary.
@@ -84,12 +84,12 @@ class DB_Top_opt():
         Returns:
             float: the points loss, i.e., the sum of the squared distances to the DB
         """
-        new_points = self._degree_of_freedom(t, net, theta)
-        return self.sampler._loss(new_points, theta, net)
+        new_points = self._degree_of_freedom(t, theta)
+        return self.sampler._loss(new_points, theta)
     
     @implicit_diff.custom_root(_optimality_condition)
     @partial(jit, static_argnums=(0,))
-    def _inner_problem(self, t, theta, net, n_epochs=30, lr=1e-2):
+    def _inner_problem(self, t, theta, n_epochs=30, lr=1e-2):
         """This function is the inner optimization problem. It simply samples (with the new
         points) the decision boundary of the network, but with the custom root decorator it
         is possible to get the jacobian of the optimal points wrt the parameters
@@ -101,11 +101,11 @@ class DB_Top_opt():
             theta (jnp.array): the points that sample the decision boundary
             net (function): the function parametrized by theta
         """
-        new_points = self._degree_of_freedom(t, net, theta)
-        return self.sampler.sample(net, new_points, lr=lr, epochs=n_epochs, delete_outliers=False)
+        new_points = self._degree_of_freedom(t, theta)
+        return self.sampler.sample(self.net, new_points, lr=lr, epochs=n_epochs, delete_outliers=False)
         
     @partial(jit, static_argnums=(0,))
-    def toploss(self, theta, net):
+    def toploss(self, theta):
         """This the topological loss that is optimized by the class. It depends on the
         value of theta.
 
@@ -117,7 +117,7 @@ class DB_Top_opt():
             jnp.array: the value of the topological loss.
         """
         t_init = jnp.zeros_like(self.x[:, 0])
-        new_points = self._inner_problem(t_init, theta, net)
+        new_points = self._inner_problem(t_init, theta)
         return self.pg.single_cycle(new_points)
     
     def optimize(self, theta_init, n_epochs):
