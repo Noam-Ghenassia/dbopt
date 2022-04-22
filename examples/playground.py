@@ -4,6 +4,7 @@ from IPython import get_ipython  # type: ignore
 get_ipython().magic('load_ext autoreload')
 get_ipython().magic('autoreload 2')
 
+
 #%%
 import numpy as np
 import jax.numpy as jnp
@@ -23,6 +24,16 @@ print(opt.toploss(theta=0))   #same error
 
 
 # %%
+from impplicitDiffSample import ImpliciteDifferentationSample as d1
+from impplicitDiffSample import DifferentiationSample as d2
 
+from jax import grad
+import jax.numpy as jnp
+c2=d2()
+#print(grad(c2.f)(2.))
+#print(jnp.exp(2.))
 
+c1=d1()
+a = jnp.array([2.0])
+c1.implicite_differentiation(a)
 # %%
