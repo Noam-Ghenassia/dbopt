@@ -142,7 +142,3 @@ class DB_Top_opt():
             params = optax.apply_updates(params, updates)
             if epoch % 5 ==0:
                 self.x = params['theta']
-
-        
-       
-       

@@ -1,10 +1,16 @@
 from dbopt.ImpliciteDifferentationSample import ImpliciteDifferentationSample
 
+from jax import grad
 import jax.numpy as jnp
+from jaxopt.implicit_diff import custom_root
 
 def test_implicite_differentiation():
     t = jnp.array([1., 2., 3.])
-    implicite_differentiation = ImpliciteDifferentationSample()
-    print(implicite_differentiation.implicite_differentiation(t))
-    assert jnp.allclose(implicite_differentiation.implicite_differentiation(t),
+    ids = ImpliciteDifferentationSample()
+    grads = grad(lambda t: 
+                custom_root(ids._optimality_condition)
+                (ids._inner_problem)(None, t).sum()
+            )(t)
+    assert jnp.allclose(grads,
                         jnp.array([1., 1., 1.]))
+# %%
