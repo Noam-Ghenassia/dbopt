@@ -1,6 +1,7 @@
+from functools import partial
 from jax import numpy as jnp
 from jax import grad
-from jaxopt import implicit_diff
+from jaxopt.implicit_diff import custom_root
 
 
 class ImpliciteDifferentationSample:
@@ -24,8 +25,8 @@ class ImpliciteDifferentationSample:
         """
         return x_star - t
 
-    @implicit_diff.custom_root(_optimality_condition)
-    def _inner_problem(self, t):
+
+    def _inner_problem(self, x_init, t):
         """Inner optimization problem: argmin x_star(t) of the equation
         (x - t)**2.
 
@@ -37,16 +38,14 @@ class ImpliciteDifferentationSample:
         """
         return t
     
-    def implicite_differentiation(self, t):
-        """Compute the derivative of the argmin x_star(t) of the equation
-        (x - t)**2 with respect to t using the implicit differentiation
-        technique.
+    def x_star(self, t):
+        """Compute the argmin x_star(t) of the equation (x - t)**2.
 
         Args:
             t (jnp.array): the point at which we compute the derivative
 
         Returns:
-            jnp.array: the value of the derivative
+            jnp.array: the value of the inner optimization problem
         """
-        x_star = self._inner_problem(t)
-        return grad(x_star)(t)
+        return custom_root(self._optimality_condition)\
+            (self._inner_problem)(None, t)
