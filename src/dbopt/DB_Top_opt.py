@@ -23,10 +23,9 @@ class DB_Top_opt():
     provide a set of Betti numbers instead of the actual function to optimize.
     """
     
-    def __init__(self, net, n_sampling, lr=1e-2, num_epochs=150):
+    def __init__(self, net, n_sampling, lr=1e-2):
         self.net = net
         self.lr = lr
-        self.num_epochs = num_epochs
         self.sampler = DB_sampler(n_points=n_sampling)
         self.pg = pg.PersistentGradient()
         self.x = self.sampler.sample(0., net)   # should use the actual parameters of the net, not 0 !!!
@@ -46,7 +45,8 @@ class DB_Top_opt():
             jnp.array: an n*d matrix with rows the normal vectors of the decision boundary
             evaluated at the points sampled by the sampler.
         """
-        normal_vectors = jacfwd(lambda x : self.net(x, theta))(self.x)
+        #normal_vectors = jacfwd(lambda x : self.net(x, theta))(self.x)
+        normal_vectors = grad(lambda x : self.net(x, theta).sum())(self.x)
         norms = jnp.linalg.norm(normal_vectors, axis=1)
         return jnp.divide(normal_vectors, norms[:, None])
     
@@ -64,7 +64,7 @@ class DB_Top_opt():
         Returns:
             jnp.array: the new points.
         """
-        return self.x + jnp.multiply(t, self._normal_unit_vectors(theta))
+        return self.x + jnp.multiply(t[:, None], self._normal_unit_vectors(theta))
 
 
     def _optimality_condition(self, t, theta):
@@ -99,7 +99,10 @@ class DB_Top_opt():
             net (function): the function parametrized by theta
         """
         new_points = self._degree_of_freedom(t, theta)
-        return self.sampler.sample(self.net, new_points, lr=lr, epochs=n_epochs, delete_outliers=False)
+        print("inner 1")
+        res = self.sampler.sample(theta, self.net, new_points, lr=lr, epochs=n_epochs, delete_outliers=False)
+        print("inner 2")
+        return res
 
 #return custom_root(self._optimality_condition)\
 #            (self._inner_problem)(None, t)

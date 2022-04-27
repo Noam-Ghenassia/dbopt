@@ -112,12 +112,12 @@ class DB_sampler():
             opt_init, opt_update, get_points = adam(lr)
             opt_state = opt_init(points)
             
-            losses = np.empty((epochs,))
+            #losses = np.empty((epochs,))
 
             for epoch in range(epochs):
-                value, opt_state = self._step(net, epoch, opt_state, opt_update, get_points)
+                value, opt_state = self._step(net, theta, epoch, opt_state, opt_update, get_points)
                 points = get_points(opt_state)
-                losses[epoch] = value
+            #    losses[epoch] = value
             
             #DELETE POINTS WITH BIG LOSS
             if delete_outliers:
