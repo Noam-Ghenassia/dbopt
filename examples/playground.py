@@ -24,16 +24,28 @@ print(opt.toploss(theta=0))   #same error
 
 
 # %%
-from impplicitDiffSample import ImpliciteDifferentationSample as d1
-from impplicitDiffSample import DifferentiationSample as d2
+from dbopt.ImpliciteDifferentiationSample import ImpliciteDifferentationSample as d1
+#from dbopt.ImpliciteDifferentiationSample import DifferentiationSample as d2
 
 from jax import grad
 import jax.numpy as jnp
-c2=d2()
+#c2=d2()
 #print(grad(c2.f)(2.))
 #print(jnp.exp(2.))
 
 c1=d1()
 a = jnp.array([2.0])
 c1.implicite_differentiation(a)
+# %%
+import jax.numpy as jnp
+
+from jax import grad
+from dbopt.ImpliciteDifferentiationSample import ImpliciteDifferentationSample
+
+# %%
+d1 = ImpliciteDifferentationSample()
+
+grad(d1.implicite_differentiation)(jnp.array([1.0]))
+# %%
+
 # %%
