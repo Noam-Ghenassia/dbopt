@@ -4,7 +4,8 @@ from jax import grad
 from jax import jacfwd
 #from jax.experimental.optimizers import adam
 import optax
-from jaxopt import implicit_diff
+#from jaxopt import implicit_diff
+from jaxopt.implicit_diff import custom_root
 
 
 from dbopt import persistent_gradient as pg
@@ -30,6 +31,7 @@ class DB_Top_opt():
         self.sampler = DB_sampler()
         self.pg = pg.PersistentGradient()
         self.x = self.sampler.sample(0., net)   # should use the actual parameters of the net, not 0 !!!
+        #self.last_t = None     # use that so we don't have to optimize the inner from scratch at each step
     
     def get_points(self):
         return self.x
@@ -82,7 +84,7 @@ class DB_Top_opt():
         new_points = self._degree_of_freedom(t, net, theta)
         return self.sampler._loss(new_points, theta, net)
     
-    @implicit_diff.custom_root(_optimality_condition)
+    @custom_root(_optimality_condition)
     def _inner_problem(self, t, theta, net, n_epochs=30, lr=1e-2):
         """This function is the inner optimization problem. It simply samples the
         decision boundary of the network, but with the custom root decorator it
@@ -112,6 +114,9 @@ class DB_Top_opt():
         """
         t_init = jnp.zeros_like(self.x[:, 0])
         new_points = self._inner_problem(t_init, theta, net)
+        # Use custom root to make inner problem differentiable with respect to theta
+        #new_points = custom_root(self._optimality_condition)\
+        #    (self._inner_problem)(t_init, theta, net)
         return self.pg.single_cycle(new_points)
     
     def optimize(self, theta_init, n_epochs):
