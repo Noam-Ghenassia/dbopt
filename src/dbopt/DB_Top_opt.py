@@ -35,7 +35,6 @@ class DB_Top_opt():
     def get_points(self):
         return self.x
     
-    @partial(jit, static_argnums=(0,))
     def _normal_unit_vectors(self, theta):
         """This function returns a set of vectors that are normal to the decision boundary
         at the points that were sampled from it by the sampler.
@@ -47,11 +46,10 @@ class DB_Top_opt():
             jnp.array: an n*d matrix with rows the normal vectors of the decision boundary
             evaluated at the points sampled by the sampler.
         """
-        normal_vectors = jacfwd(lambda x : self.net(x, theta))(self.x, theta)
+        normal_vectors = jacfwd(lambda x : self.net(x, theta))(self.x)
         norms = jnp.linalg.norm(normal_vectors, axis=1)
         return jnp.divide(normal_vectors, norms[:, None])
     
-    @partial(jit, static_argnums=(0,))
     def _degree_of_freedom(self, t:jnp.array, theta):
         """This function gives a new set of points that depend on the points initially sampled
         by the sampler, but that only depend on a single real coordinate each. These new
@@ -66,9 +64,9 @@ class DB_Top_opt():
         Returns:
             jnp.array: the new points.
         """
-        return self.x + jnp.multiply(t, self._normal_unit_vectors(self.net, theta))
+        return self.x + jnp.multiply(t, self._normal_unit_vectors(theta))
 
-    @partial(jit, static_argnums=(0,))
+
     def _optimality_condition(self, t, theta):
         """This function is the optimality condition that implicitly defines
         points*(theta) : for a given theta, the optimality condition is zero
@@ -87,8 +85,7 @@ class DB_Top_opt():
         new_points = self._degree_of_freedom(t, theta)
         return self.sampler._loss(new_points, theta)
     
-    @implicit_diff.custom_root(_optimality_condition)
-    @partial(jit, static_argnums=(0,))
+    #@implicit_diff.custom_root(_optimality_condition)
     def _inner_problem(self, t, theta, n_epochs=30, lr=1e-2):
         """This function is the inner optimization problem. It simply samples (with the new
         points) the decision boundary of the network, but with the custom root decorator it
@@ -103,8 +100,10 @@ class DB_Top_opt():
         """
         new_points = self._degree_of_freedom(t, theta)
         return self.sampler.sample(self.net, new_points, lr=lr, epochs=n_epochs, delete_outliers=False)
+
+#return custom_root(self._optimality_condition)\
+#            (self._inner_problem)(None, t)
         
-    @partial(jit, static_argnums=(0,))
     def toploss(self, theta):
         """This the topological loss that is optimized by the class. It depends on the
         value of theta.
@@ -117,7 +116,9 @@ class DB_Top_opt():
             jnp.array: the value of the topological loss.
         """
         t_init = jnp.zeros_like(self.x[:, 0])
-        new_points = self._inner_problem(t_init, theta)
+        #new_points = self._inner_problem(t_init, theta)
+        new_points = implicit_diff.custom_root(self._inner_problem(t_init, theta))\
+            (self._inner_problem)(t_init, theta)
         return self.pg.single_cycle(new_points)
     
     def optimize(self, theta_init, n_epochs):
@@ -141,7 +142,7 @@ class DB_Top_opt():
         optimizer = optax.adam(self.lr)
         params = {'theta': theta}
         opt_state = optimizer.init(params)
-        loss = lambda params: self.toploss(params, self.net)     #in later versions this should include cross entropy
+        loss = lambda params: self.toploss(params['theta'])     #in later versions this should include cross entropy
         
         for epoch in range(n_epochs):
             grads = grad(loss)(params)

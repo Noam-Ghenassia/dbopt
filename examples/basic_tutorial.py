@@ -71,7 +71,7 @@ spiral.plot(ax2)
 
 bumps = Bumps()
 fig, (ax1, ax2) = plt.subplots(2, figsize=(11, 11))
-opt = DB_Top_opt(bumps.level)
+opt = DB_Top_opt(bumps.level, n_sampling=1000)
 points = opt.get_points()
 bumps.plot(ax1)
 ax1.scatter(points[:, 0], points[:, 1], color='red')
@@ -81,3 +81,5 @@ opt.optimize(theta_init=0., n_epochs=16)
 points = opt.get_points()
 bumps.plot(ax2)
 ax2.scatter(points[:, 0], points[:, 1], color='red')
+
+# %%
