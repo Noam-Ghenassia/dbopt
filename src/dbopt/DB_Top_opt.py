@@ -83,7 +83,10 @@ class DB_Top_opt():
             float: the points loss, i.e., the sum of the squared distances to the DB
         """
         new_points = self._degree_of_freedom(t, theta)
-        return self.sampler._loss(new_points, theta)
+        print("opt 1")
+        res = self.sampler._loss(new_points, theta, self.net)
+        print("opt 2")
+        return res
     
     #@implicit_diff.custom_root(_optimality_condition)
     def _inner_problem(self, t, theta, n_epochs=30, lr=1e-2):
@@ -99,10 +102,9 @@ class DB_Top_opt():
             net (function): the function parametrized by theta
         """
         new_points = self._degree_of_freedom(t, theta)
-        print("inner 1")
-        res = self.sampler.sample(theta, self.net, new_points, lr=lr, epochs=n_epochs, delete_outliers=False)
         print("inner 2")
-        return res
+        return self.sampler.sample(theta, self.net, new_points,
+                                   lr=lr, epochs=n_epochs, delete_outliers=False)
 
 #return custom_root(self._optimality_condition)\
 #            (self._inner_problem)(None, t)
@@ -120,7 +122,7 @@ class DB_Top_opt():
         """
         t_init = jnp.zeros_like(self.x[:, 0])
         #new_points = self._inner_problem(t_init, theta)
-        new_points = implicit_diff.custom_root(self._inner_problem(t_init, theta))\
+        new_points = implicit_diff.custom_root(self._optimality_condition)\
             (self._inner_problem)(t_init, theta)
         return self.pg.single_cycle(new_points)
     
