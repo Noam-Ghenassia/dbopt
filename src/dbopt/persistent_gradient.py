@@ -1,6 +1,7 @@
 from gph.python import ripser_parallel
 import numpy as np
 from jax import numpy as jnp
+from jax.lax import stop_gradient
 
 class PersistentGradient():
     '''This class computes the gradient of the persistence
@@ -66,7 +67,7 @@ class PersistentGradient():
                 first 2 dimensions) where the last dimension 
                 contains the homology dimension
         """
-        output = ripser_parallel(np.asarray(X),
+        output = ripser_parallel(np.asarray(stop_gradient(X)),
                                  maxdim=max(self.homology_dimensions),
                                  thresh=self.max_edge_length,
                                  coeff=2,
@@ -80,17 +81,21 @@ class PersistentGradient():
             if dim == 0:
                 # x[1] and x[2] are the indices of the vertices at the ends of the
                 # 1D-simplex that killed a connected component. Therefore, the
-                # euclidean distance between them is the filtratio value at which
+                # euclidean distance between them is the filtration value at which
                 # this CC dies.
-                persistence_pairs += [(0, jnp.norm(X[x[1]]-X[x[2]]),
+                
+                persistence_pairs += [(0, jnp.linalg.norm(X[x[1]]-X[x[2]]),
                                       0) for x in output["gens"][dim]]
             else:
                 # x[0] and x[1] are the indices of the extremities of the edge that,
                 # when added, creates a new features in the homology of dimension dim.
-                # Similarly, x[2] and [3] are the indices of the edge that kills this feature.
-                persistence_pairs += [(jnp.norm(X[x[1]]-X[x[0]]), 
-                                      jnp.norm(X[x[3]]-X[x[2]]), 
+                # Similarly, x[2] and x[3] are the indices of the edge that kills this feature.
+                persistence_pairs += [(jnp.linalg.norm(X[x[1]]-X[x[0]]), 
+                                      jnp.linalg.norm(X[x[3]]-X[x[2]]), 
                                       dim) for x in output["gens"][1][dim-1]]
+        #print("list : ", len(persistence_pairs), len(persistence_pairs[0]))
+        #persistence_pairs = jnp.array([jnp.array(pair) for pair in persistence_pairs])
+        #print("array : ", type(persistence_pairs))
         return persistence_pairs
     
     
@@ -101,9 +106,12 @@ class PersistentGradient():
         Args:
             pers_diag (list): the persistence diagram that should be optimized
         """
-
+        
         pers_diag = self._computing_persistence_with_gph(X)
-        H1 = pers_diag[pers_diag[:, 2]==1]
+        # select only the pairs that correspond to 1D features
+        #H1 = pers_diag[pers_diag[:, 2]==1]     # is there a way to make this parallelizable ?
+        H1 = jnp.array([jnp.asarray(pers_pair) for pers_pair in pers_diag if pers_pair[2]==1])
+        print(H1.shape)
         lifetimes = H1[:, 1] - H1[:, 0]
         largest = jnp.argmax(lifetimes)
         largest_cycle = lifetimes[largest]

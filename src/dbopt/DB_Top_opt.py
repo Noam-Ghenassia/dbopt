@@ -1,14 +1,16 @@
-import numpy as np
+from typing import Union, Dict, Callable
+from functools import partial
+
 from jax import numpy as jnp
 from jax import jit, jacfwd, grad
 #from jax.experimental.optimizers import adam
+from jaxopt.implicit_diff import custom_root
+import numpy as np
 import optax
-from jaxopt import implicit_diff
-from functools import partial
 
 
-from dbopt import persistent_gradient as pg
 from dbopt.DB_sampler import DB_sampler
+from dbopt.persistent_gradient import PersistentGradient
 
 
 class DB_Top_opt():
@@ -24,17 +26,20 @@ class DB_Top_opt():
     """
     
     def __init__(self, net, n_sampling, lr=1e-2):
-        self.net = net
-        self.lr = lr
-        self.sampler = DB_sampler(n_points=n_sampling)
-        self.pg = pg.PersistentGradient()
-        self.x = self.sampler.sample(0., net)   # should use the actual parameters of the net, not 0 !!!
+        self.net: Callable[[jnp.array], jnp.array] = net  # TODO: check if this is the right way to do it or use jnp.ndarray
+        self.n_sampling: int = n_sampling
+        self.lr: float = lr
+        self.sampler = DB_sampler(n_points=n_sampling)  # TODO: get rid of this because of cohesion
+        self.pg = PersistentGradient()  # TODO: get rid of this because of cohesion
+        self.sampled_points = self.sampler.sample(0., net)   #TODO: should use the actual parameters of the net, not 0 !!!
                                                 # This might be done by introducing accessor methods in FCNN and bumps.
+                                                # also, call it DB_sampling
+        # TODO: Find out why this function takes a long time to run
     
     def get_points(self):
-        return self.x
+        return self.sampled_points
     
-    def _normal_unit_vectors(self, theta):
+    def _normal_unit_vectors(self, theta: Union[jnp.array, Dict[str, jnp.array]]):
         """This function returns a set of vectors that are normal to the decision boundary
         at the points that were sampled from it by the sampler.
 
@@ -45,12 +50,11 @@ class DB_Top_opt():
             jnp.array: an n*d matrix with rows the normal vectors of the decision boundary
             evaluated at the points sampled by the sampler.
         """
-        #normal_vectors = jacfwd(lambda x : self.net(x, theta))(self.x)
-        normal_vectors = grad(lambda x : self.net(x, theta).sum())(self.x)
-        norms = jnp.linalg.norm(normal_vectors, axis=1)
-        return jnp.divide(normal_vectors, norms[:, None])
+        normal_vectors = grad(lambda x : self.net(x, theta).sum())(self.sampled_points)
+        norms = jnp.linalg.norm(normal_vectors, axis=1).reshape(-1, 1)
+        return normal_vectors / norms
     
-    def _degree_of_freedom(self, t:jnp.array, theta):
+    def _parametrization_normal_lines(self, t: jnp.array, theta: jnp.array):       #
         """This function gives a new set of points that depend on the points initially sampled
         by the sampler, but that only depend on a single real coordinate each. These new
         points are bound to move along a line that is normal to the decision boundary
@@ -64,7 +68,7 @@ class DB_Top_opt():
         Returns:
             jnp.array: the new points.
         """
-        return self.x + jnp.multiply(t[:, None], self._normal_unit_vectors(theta))
+        return self.sampled_points + t * self._normal_unit_vectors(theta)
 
 
     def _optimality_condition(self, t, theta):
@@ -82,14 +86,16 @@ class DB_Top_opt():
         Returns:
             float: the points loss, i.e., the sum of the squared distances to the DB
         """
-        new_points = self._degree_of_freedom(t, theta)
-        print("opt 1")
-        res = self.sampler._loss(new_points, theta, self.net)
-        print("opt 2")
-        return res
+        new_points = self._parametrization_normal_lines(t, theta)
+        # res = self.sampler._loss(new_points, theta, self.net)
+        #return res
+        
+        
+        # Working solution for special case
+        # return (self._degree_of_freedom(t, theta) ** 2).sum(axis=1) - theta ** 2 * jnp.ones(self.n_sampling)  # should have shape (n_sampling, )
     
     #@implicit_diff.custom_root(_optimality_condition)
-    def _inner_problem(self, t, theta, n_epochs=30, lr=1e-2):
+    def _inner_problem(self, t_init, theta): #, n_epochs=30, lr=1e-2):
         """This function is the inner optimization problem. It simply samples (with the new
         points) the decision boundary of the network, but with the custom root decorator it
         is possible to get the jacobian of the optimal points wrt the parameters
@@ -101,14 +107,25 @@ class DB_Top_opt():
             theta (jnp.array): the points that sample the decision boundary
             net (function): the function parametrized by theta
         """
-        new_points = self._degree_of_freedom(t, theta)
-        print("inner 2")
-        return self.sampler.sample(theta, self.net, new_points,
-                                   lr=lr, epochs=n_epochs, delete_outliers=False)
-
-#return custom_root(self._optimality_condition)\
-#            (self._inner_problem)(None, t)
+        # new_points = self._degree_of_freedom(t, theta)
+        # print("inner 2")
+        # return self.sampler.sample(theta, self.net, new_points,
+        #                            lr=lr, epochs=n_epochs, delete_outliers=False)   #TODO create a new method that only
+        #                                                                             #optimizes t, instead of sample
+        del t_init
+        return jnp.zeros(self.n_sampling)  # should have the shape (n_sampling, )
         
+    def t_star(self, theta):
+        """ This function returns the optimal value of t, i.e., the value of t that
+        minimizes the distance between the points and the decision boundary.
+        """
+        t_init = None
+        print("hello")
+        print(self._parametrization_normal_lines(jnp.zeros(self.n_sampling), theta))
+        return custom_root(self._optimality_condition)\
+            (self._inner_problem)(t_init, theta)
+    
+    # TODO: This should be outside the class
     def toploss(self, theta):
         """This the topological loss that is optimized by the class. It depends on the
         value of theta.
@@ -120,12 +137,12 @@ class DB_Top_opt():
         Returns:
             jnp.array: the value of the topological loss.
         """
-        t_init = jnp.zeros_like(self.x[:, 0])
-        #new_points = self._inner_problem(t_init, theta)
-        new_points = implicit_diff.custom_root(self._optimality_condition)\
+        t_init = jnp.zeros_like(self.sampled_points[:, 0])
+        new_points = custom_root(self._optimality_condition)\
             (self._inner_problem)(t_init, theta)
         return self.pg.single_cycle(new_points)
     
+    # TODO: Put this in a separate optimization class
     def optimize(self, theta_init, n_epochs):
         """This is the main function of the class. It allows to optimize the
         topological loss of the decision boundary of net by modifying its parameter(s)
@@ -147,18 +164,22 @@ class DB_Top_opt():
         optimizer = optax.adam(self.lr)
         params = {'theta': theta}
         opt_state = optimizer.init(params)
-        loss = lambda params: self.toploss(params['theta'])     #in later versions this should include cross entropy
+        #opt_state = optimizer.init(theta)
+        loss = lambda x: self.toploss(x)     #in later versions this should include cross entropy
         
         for epoch in range(n_epochs):
-            grads = grad(loss)(params)
+            grads = grad(loss)(params['theta'])
+            #grads = grad(loss)(theta)
             updates, opt_state = optimizer.update(grads, opt_state)
             params = optax.apply_updates(params, updates)
+            #theta = optax.apply_updates(theta, updates)
             
             # the points that were initially sampled by the sampler should be frequently updated.
             # every 5 epochs we set them so the value of new_points, that is, the intersections
             # of the normal lines with the DB given by the current value of theta.
             if epoch % 5 ==0:
-                self.x = params['theta']
+                t = jnp.zeros_like(self.sampled_points[:, 0])
+                self.sampled_points = self._inner_problem(t, theta=theta)
 
         
 

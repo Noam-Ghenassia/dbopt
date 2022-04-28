@@ -20,4 +20,7 @@ def test_get_points():
 
 
     
-    
+# TODO: add circle test
+
+
+# TODO: add bump test with computed gradient (!only the gradient) of topological loss
