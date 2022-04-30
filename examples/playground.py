@@ -14,7 +14,7 @@ from dbopt.DB_sampler import DB_sampler
 from dbopt.Bumps import Bumps
 from dbopt.Datasets import Spiral
 from dbopt.FCNN import FCNN
-from dbopt.DB_Top_opt import DB_Top_opt
+from dbopt.DB_Top_opt import DB_grad
 
 #%%
 # bumps = Bumps()
@@ -71,7 +71,7 @@ y = jnp.array([[1, 1], [-1, 1], [2, 0]])
 y_normalized = y / jnp.sqrt((y**2).sum(axis=1)).reshape(-1, 1)
 
 #db_opt = DB_Top_opt(net, n_sampling=0)
-db_opt = DB_Top_opt(net, x_normalized)
+db_opt = DB_grad(net, y_normalized)
 # %%
 from jax import grad
 #db_opt.sampled_points = x_normalized

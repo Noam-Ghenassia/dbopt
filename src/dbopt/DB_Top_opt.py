@@ -12,7 +12,7 @@ from dbopt.DB_sampler import DB_sampler
 from dbopt.persistent_gradient import PersistentGradient
 
 
-class DB_Top_opt():         # rename DB_grad
+class DB_grad():
     """This class allows to modify the parameters of a function (typically, the
     weights of a neural network) in order to optimize the homology of the
     simplicial complex constructed on a set of points sampled from the 0-level
@@ -24,17 +24,9 @@ class DB_Top_opt():         # rename DB_grad
     provide a set of Betti numbers instead of the actual function to optimize.
     """
     
-    #def __init__(self, net, n_sampling, lr=1e-2):
-    def __init__(self, net: callable, sampled_points: jnp.array, lr=1e-2):
-        self.net: Callable[[jnp.array], jnp.array] = net  # TODO: check if this is the right way to do it or use jnp.ndarray
-        #self.n_sampling: int = n_sampling
-        #self.lr: float = lr
-        #self.sampler = DB_sampler(n_points=n_sampling)  # TODO: get rid of this because of cohesion
-        #self.pg = PersistentGradient()  # TODO: get rid of this because of cohesion
+    def __init__(self, net: callable, sampled_points: jnp.array):
+        self.net: Callable[[jnp.array], jnp.array] = net
         self.sampled_points = sampled_points
-        #self.sampled_points = self.sampler.sample(0., net)   #TODO: should use the actual parameters of the net, not 0 !!!
-                                                # This might be done by introducing accessor methods in FCNN and bumps.
-        # TODO: Find out why this function takes a long time to run
     
     def get_points(self):
         return self.sampled_points
@@ -68,8 +60,7 @@ class DB_Top_opt():         # rename DB_grad
         Returns:
             jnp.array: the new points.
         """
-        #print(self.sampled_points.shape, t.shape, self._normal_unit_vectors(theta).shape)
-        #print("2", self.sampled_points + t * self._normal_unit_vectors(theta))
+        
         return self.sampled_points + jnp.expand_dims(t, 1) * self._normal_unit_vectors(theta)
 
 
@@ -88,20 +79,22 @@ class DB_Top_opt():         # rename DB_grad
         Returns:
             float: the points loss, i.e., the sum of the squared distances to the DB
         """
-        #new_points = self._parametrization_normal_lines(t, theta)
-        # res = self.sampler._loss(new_points, theta, self.net)
-        #return res
-        
         
         # Working solution for special case
-        #print((self._parametrization_normal_lines(t, theta) ** 2).sum(axis=1).shape)
-        #print(theta ** 2 * jnp.ones(self.sampled_points.shape[0]).shape)
-        #print("3", (self._parametrization_normal_lines(t, theta) ** 2).sum(axis=1)\
-        #    - theta ** 2 * jnp.ones(self.sampled_points.shape[0]))
         return (self._parametrization_normal_lines(t, theta) ** 2).sum(axis=1)\
-            - theta ** 2 * jnp.ones(self.sampled_points.shape[0])  # should have shape (n_sampling, )
+            - theta ** 2 * jnp.ones(self.sampled_points.shape[0])
+        
+        """points_along_normal_lines = self._parametrization_normal_lines(t, theta)
+        logits = self.net(points_along_normal_lines, theta)
+        
+        if logits.ndim == 2:
+            losses = (logits[:, 0]-logits[:, 1])**2
+        else :
+            losses = logits**2
+        return losses
+        #return jnp.mean(losses)"""
     
-    #@implicit_diff.custom_root(_optimality_condition)
+    
     def _inner_problem(self, t_init, theta): #, n_epochs=30, lr=1e-2):
         """This function is the inner optimization problem. It simply samples (with the new
         points) the decision boundary of the network, but with the custom root decorator it
@@ -132,10 +125,8 @@ class DB_Top_opt():         # rename DB_grad
         return custom_root(self._optimality_condition)\
             (self._inner_problem)(t_init, theta)
     
-    def update_sampled_points(self):
-        pass
-    
     ######################################################################
+    
     
     # TODO: This should be outside the class
     #def toploss(self, theta):
@@ -193,4 +184,14 @@ class DB_Top_opt():         # rename DB_grad
                 t = jnp.zeros_like(self.sampled_points[:, 0])
                 self.sampled_points = self._inner_problem(t, theta=theta)
 
-  
+
+class Top_grad():
+    """This class is responsible for the computation of the gradient of the topological loss
+    of the decision boundary of the network with respect to the weights of the network.
+    """
+    def __init__(self, net, n_sampling):
+        self.net = net
+        self.n_sampling = n_sampling
+        self.sampler = DB_sampler(n_points=self.n_sampling)
+    
+    

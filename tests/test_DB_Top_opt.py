@@ -1,7 +1,7 @@
 import pytest
 import jax.numpy as jnp
 from jax import grad
-from dbopt.DB_Top_opt import DB_Top_opt
+from dbopt.DB_Top_opt import DB_grad
 from dbopt.Bumps import Bumps
 from dbopt.DB_sampler import DB_sampler
 
@@ -30,11 +30,11 @@ def test_grad_of_unit_circle_sampling():
     x1 = jnp.array([[1, 1], [2, 0]])
     x2 = jnp.array([[]])
     x1_normalized = x1 / jnp.sqrt((x1**2).sum(axis=1)).reshape(-1, 1)
-    db_opt = DB_Top_opt(net, x1_normalized)
+    db_opt = DB_grad(net, x1_normalized)
     assert jnp.allclose(grad(lambda r: db_opt.t_star(r).sum())(r), 2.)
     x2 = jnp.array([[1, 1], [-1, 1], [2, 0]])
     x2_normalized = x2 / jnp.sqrt((x2**2).sum(axis=1)).reshape(-1, 1)
-    db_opt = DB_Top_opt(net, x2_normalized)
+    db_opt = DB_grad(net, x2_normalized)
     assert jnp.allcose(grad(lambda r: db_opt.t_star(r).sum())(r), 3.)
     
 
