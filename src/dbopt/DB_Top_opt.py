@@ -3,7 +3,6 @@ from functools import partial
 
 from jax import numpy as jnp
 from jax import jit, jacfwd, grad
-#from jax.experimental.optimizers import adam
 from jaxopt.implicit_diff import custom_root
 import numpy as np
 import optax
@@ -13,7 +12,7 @@ from dbopt.DB_sampler import DB_sampler
 from dbopt.persistent_gradient import PersistentGradient
 
 
-class DB_Top_opt():
+class DB_Top_opt():         # rename DB_grad
     """This class allows to modify the parameters of a function (typically, the
     weights of a neural network) in order to optimize the homology of the
     simplicial complex constructed on a set of points sampled from the 0-level
@@ -25,15 +24,16 @@ class DB_Top_opt():
     provide a set of Betti numbers instead of the actual function to optimize.
     """
     
-    def __init__(self, net, n_sampling, lr=1e-2):
+    #def __init__(self, net, n_sampling, lr=1e-2):
+    def __init__(self, net: callable, sampled_points: jnp.array, lr=1e-2):
         self.net: Callable[[jnp.array], jnp.array] = net  # TODO: check if this is the right way to do it or use jnp.ndarray
-        self.n_sampling: int = n_sampling
-        self.lr: float = lr
-        self.sampler = DB_sampler(n_points=n_sampling)  # TODO: get rid of this because of cohesion
-        self.pg = PersistentGradient()  # TODO: get rid of this because of cohesion
-        self.sampled_points = self.sampler.sample(0., net)   #TODO: should use the actual parameters of the net, not 0 !!!
+        #self.n_sampling: int = n_sampling
+        #self.lr: float = lr
+        #self.sampler = DB_sampler(n_points=n_sampling)  # TODO: get rid of this because of cohesion
+        #self.pg = PersistentGradient()  # TODO: get rid of this because of cohesion
+        self.sampled_points = sampled_points
+        #self.sampled_points = self.sampler.sample(0., net)   #TODO: should use the actual parameters of the net, not 0 !!!
                                                 # This might be done by introducing accessor methods in FCNN and bumps.
-                                                # also, call it DB_sampling
         # TODO: Find out why this function takes a long time to run
     
     def get_points(self):
@@ -54,7 +54,7 @@ class DB_Top_opt():
         norms = jnp.linalg.norm(normal_vectors, axis=1).reshape(-1, 1)
         return normal_vectors / norms
     
-    def _parametrization_normal_lines(self, t: jnp.array, theta: jnp.array):       #
+    def _parametrization_normal_lines(self, t: jnp.array, theta: jnp.array):
         """This function gives a new set of points that depend on the points initially sampled
         by the sampler, but that only depend on a single real coordinate each. These new
         points are bound to move along a line that is normal to the decision boundary
@@ -68,7 +68,9 @@ class DB_Top_opt():
         Returns:
             jnp.array: the new points.
         """
-        return self.sampled_points + t * self._normal_unit_vectors(theta)
+        #print(self.sampled_points.shape, t.shape, self._normal_unit_vectors(theta).shape)
+        #print("2", self.sampled_points + t * self._normal_unit_vectors(theta))
+        return self.sampled_points + jnp.expand_dims(t, 1) * self._normal_unit_vectors(theta)
 
 
     def _optimality_condition(self, t, theta):
@@ -86,13 +88,18 @@ class DB_Top_opt():
         Returns:
             float: the points loss, i.e., the sum of the squared distances to the DB
         """
-        new_points = self._parametrization_normal_lines(t, theta)
+        #new_points = self._parametrization_normal_lines(t, theta)
         # res = self.sampler._loss(new_points, theta, self.net)
         #return res
         
         
         # Working solution for special case
-        # return (self._degree_of_freedom(t, theta) ** 2).sum(axis=1) - theta ** 2 * jnp.ones(self.n_sampling)  # should have shape (n_sampling, )
+        #print((self._parametrization_normal_lines(t, theta) ** 2).sum(axis=1).shape)
+        #print(theta ** 2 * jnp.ones(self.sampled_points.shape[0]).shape)
+        #print("3", (self._parametrization_normal_lines(t, theta) ** 2).sum(axis=1)\
+        #    - theta ** 2 * jnp.ones(self.sampled_points.shape[0]))
+        return (self._parametrization_normal_lines(t, theta) ** 2).sum(axis=1)\
+            - theta ** 2 * jnp.ones(self.sampled_points.shape[0])  # should have shape (n_sampling, )
     
     #@implicit_diff.custom_root(_optimality_condition)
     def _inner_problem(self, t_init, theta): #, n_epochs=30, lr=1e-2):
@@ -113,20 +120,25 @@ class DB_Top_opt():
         #                            lr=lr, epochs=n_epochs, delete_outliers=False)   #TODO create a new method that only
         #                                                                             #optimizes t, instead of sample
         del t_init
-        return jnp.zeros(self.n_sampling)  # should have the shape (n_sampling, )
+        return jnp.zeros(self.sampled_points.shape[0])  # should have the shape (n_sampling, )
+        #return jnp.zeros_like(self.sampled_points.shape[0])
         
     def t_star(self, theta):
         """ This function returns the optimal value of t, i.e., the value of t that
         minimizes the distance between the points and the decision boundary.
         """
         t_init = None
-        print("hello")
-        print(self._parametrization_normal_lines(jnp.zeros(self.n_sampling), theta))
+        #print("param normal lines : \n", self._parametrization_normal_lines(jnp.zeros(self.n_sampling), theta))
         return custom_root(self._optimality_condition)\
             (self._inner_problem)(t_init, theta)
     
+    def update_sampled_points(self):
+        pass
+    
+    ######################################################################
+    
     # TODO: This should be outside the class
-    def toploss(self, theta):
+    #def toploss(self, theta):
         """This the topological loss that is optimized by the class. It depends on the
         value of theta.
 
@@ -137,10 +149,10 @@ class DB_Top_opt():
         Returns:
             jnp.array: the value of the topological loss.
         """
-        t_init = jnp.zeros_like(self.sampled_points[:, 0])
+        """t_init = jnp.zeros_like(self.sampled_points[:, 0])
         new_points = custom_root(self._optimality_condition)\
             (self._inner_problem)(t_init, theta)
-        return self.pg.single_cycle(new_points)
+        return self.pg.single_cycle(new_points)"""
     
     # TODO: Put this in a separate optimization class
     def optimize(self, theta_init, n_epochs):
@@ -181,45 +193,4 @@ class DB_Top_opt():
                 t = jnp.zeros_like(self.sampled_points[:, 0])
                 self.sampled_points = self._inner_problem(t, theta=theta)
 
-        
-
-
-
-#################################################################################################
-
-    #@staticmethod
-    #def _optimality_condition(t, theta, net):
-        """This function is the optimality condition that implicitly defines
-        points*(theta) : for a given theta, the optimality condition is zero
-        when the points lie on the decision boundary.
-
-        Args:
-            t (jnp.array): the coordinates of the new points along the normal vectors. In
-            the setting of jaxopt, these are the variables optimized in the inner
-            optimization problem.
-            theta (jnp.array): the parameters of the network.
-            net (function): the function parametrized by theta.
-
-        Returns:
-            float: the points loss, i.e., the sum of the squared distances to the DB
-        """
-    #    new_points = self._degree_of_freedom(t, net, theta)
-    #    return self.sampler._loss(new_points, theta, net)
-    
-    
-    #@implicit_diff.custom_root(_optimality_condition)
-    #@staticmethod
-    #def _inner_problem(t, theta, net, n_epochs=30, lr=1e-2):
-        """This function is the inner optimization problem. It simply samples the
-        decision boundary of the network, but with the custom root decorator it
-        is possible to get the jacobian of the optimal points wrt the parameters
-        of net (theta), which will be necessary in the chain rule that allows to differentiate
-        the topological loss wrt theta.
-
-        Args:
-            t (jnp.array): the parameters that define the position of the new points
-            theta (jnp.array): the points that sample the decision boundary
-            net (function): the function parametrized by theta
-        """
-    #    new_points = _degree_of_freedom(t, net, theta)
-    #    return sampler.sample(net, new_points, lr=lr, epochs=n_epochs, delete_outliers=False)
+  
