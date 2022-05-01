@@ -12,7 +12,7 @@ from dbopt.DB_sampler import DB_sampler
 from dbopt.Bumps import Bumps
 from dbopt.Datasets import Spiral
 from dbopt.FCNN import FCNN
-from dbopt.DB_Top_opt import DB_grad
+from dbopt.DB_Top_opt import DecisionBoundrayGradient
 
 
 #%%
@@ -71,7 +71,7 @@ spiral.plot(ax2)
 
 bumps = Bumps()
 fig, (ax1, ax2) = plt.subplots(2, figsize=(11, 11))
-opt = DB_grad(bumps.level, n_sampling=1000)
+opt = DecisionBoundrayGradient(bumps.level, n_sampling=1000)
 points = opt.get_points()
 bumps.plot(ax1)
 ax1.scatter(points[:, 0], points[:, 1], color='red')

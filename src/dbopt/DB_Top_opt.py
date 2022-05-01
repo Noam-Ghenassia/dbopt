@@ -12,7 +12,7 @@ from dbopt.DB_sampler import DB_sampler
 from dbopt.persistent_gradient import PersistentGradient
 
 
-class DB_grad():
+class DecisionBoundrayGradient():
     """This class allows to modify the parameters of a function (typically, the
     weights of a neural network) in order to optimize the homology of the
     simplicial complex constructed on a set of points sampled from the 0-level
@@ -44,6 +44,7 @@ class DB_grad():
         """
         normal_vectors = grad(lambda x : self.net(x, theta).sum())(self.sampled_points)
         norms = jnp.linalg.norm(normal_vectors, axis=1).reshape(-1, 1)
+        #print("normal unit vectors : ", normal_vectors/norms)
         return normal_vectors / norms
     
     def _parametrization_normal_lines(self, t: jnp.array, theta: jnp.array):
@@ -63,6 +64,7 @@ class DB_grad():
         #print("points : ", self.sampled_points.shape,
         #      "\n t : ", jnp.expand_dims(t, 1).shape,
         #      "\n normal vectors : ", self._normal_unit_vectors(theta).shape)
+        #print("new points : ", self.sampled_points + jnp.expand_dims(t, 1) * self._normal_unit_vectors(theta))
         return self.sampled_points + jnp.expand_dims(t, 1) * self._normal_unit_vectors(theta)
 
 
@@ -84,18 +86,20 @@ class DB_grad():
         
         # Working solution for special case
         #print("new points : ", self._parametrization_normal_lines(t, theta).shape)
-        #return (self._parametrization_normal_lines(t, theta) ** 2).sum(axis=1)\
-        #    - theta ** 2 * jnp.ones(self.sampled_points.shape[0])
+        return (self._parametrization_normal_lines(t, theta) ** 2).sum(axis=1)\
+            - theta ** 2 * jnp.ones(self.sampled_points.shape[0])
         
-        points_along_normal_lines = self._parametrization_normal_lines(t, theta)
+        """points_along_normal_lines = self._parametrization_normal_lines(t, theta)
         logits = self.net(points_along_normal_lines, theta)
         
         if logits.ndim == 2:
-            losses = (logits[:, 0]-logits[:, 1])**2
+            deviation_from_decision_boundary = (logits[:, 0]-logits[:, 1])**2
         else :
-            losses = logits**2
-        return losses
-        #return jnp.mean(losses)
+            deviation_from_decision_boundary = logits**2
+        #print("opt cond : ", deviation_from_decision_boundary)
+        print("opt : ", deviation_from_decision_boundary)
+        return deviation_from_decision_boundary
+        #return jnp.mean(losses)"""
     
     
     def _inner_problem(self, t_init, theta): #, n_epochs=30, lr=1e-2):
@@ -128,7 +132,7 @@ class DB_grad():
         return custom_root(self._optimality_condition)\
             (self._inner_problem)(t_init, theta)
     
-    ######################################################################
+######################################################################
     
     
     # TODO: This should be outside the class
@@ -188,7 +192,7 @@ class DB_grad():
                 self.sampled_points = self._inner_problem(t, theta=theta)
 
 
-class Top_grad():
+class TopologicalGradient():
     """This class is responsible for the computation of the gradient of the topological loss
     of the decision boundary of the network with respect to the weights of the network.
     """

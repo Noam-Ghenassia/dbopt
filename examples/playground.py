@@ -14,7 +14,7 @@ from dbopt.DB_sampler import DB_sampler
 from dbopt.Bumps import Bumps
 from dbopt.Datasets import Spiral
 from dbopt.FCNN import FCNN
-from dbopt.DB_Top_opt import DB_grad
+from dbopt.DB_Top_opt import DecisionBoundrayGradient
 
 #%%
 # bumps = Bumps()
@@ -60,22 +60,28 @@ from dbopt.DB_Top_opt import DB_grad
 # %%
 #net = lambda x, r: (x ** 2).sum() - r ** 2 * x.shape[0]
 #net = lambda x, r: (x ** 2).sum() - r ** 2
-net = lambda x, r: (x ** 2).sum(axis=1) - r ** 2 * jnp.ones(x.shape[0])
-x = jnp.array([[1, 1], [2, 0]])
-x_normalized = x / jnp.sqrt((x**2).sum(axis=1)).reshape(-1, 1)  # lies on the unit circle
-y = jnp.array([[1, 1], [-1, 1], [2, 0]])
-y_normalized = y / jnp.sqrt((y**2).sum(axis=1)).reshape(-1, 1)
-db_opt = DB_grad(net, y_normalized)
+r = jnp.array([3.0])
+#x = jnp.array([[1, 1], [2, 0]])
+#x_normalized = x / jnp.sqrt((x**2).sum(axis=1)).reshape(-1, 1)  # lies on the unit circle
 
+
+y = jnp.array([[1, 1], [-1, 1], [2, 0]])
+#y = jnp.array([[1, 1]])
+y_normalized = y / jnp.sqrt((y**2).sum(axis=1)).reshape(-1, 1)
+y_normalized = 3*y_normalized
+
+#net = lambda x, r: (x ** 2).sum(axis=1) - r ** 2 * jnp.ones(x.shape[0])
+net = lambda x, r: (x ** 2).sum(axis=1) - r **2 * jnp.ones(x.shape[0])
+db_opt = DecisionBoundrayGradient(net, y_normalized)
+print(y_normalized)
+print((y_normalized ** 2).sum(axis=1))
+print(r ** 2 * jnp.ones(y_normalized.shape[0]))
+print(net(y_normalized, r))
 
 # %%
-from jax import grad
-r = jnp.array([1.0])
-# t_star is the function that gives the parameters t such that the new points
-# lie on the circle of radius r. there are 2 points, and changing the value
-# of r (making it bigger) changes the error of each point by a factor 1.
-grad(lambda r: db_opt.t_star(r).sum())(r)
-
+from jax import grad, jacrev
+#print(grad(lambda r: db_opt.t_star(r).sum())(r))
+print(jacrev(lambda r: db_opt.t_star(r))(r))
 
 # %%
 opt_t = jnp.zeros(3)
