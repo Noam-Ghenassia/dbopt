@@ -58,60 +58,39 @@ from dbopt.DB_Top_opt import DB_grad
 # points = opt.get_points()
 
 # %%
-
 #net = lambda x, r: (x ** 2).sum() - r ** 2 * x.shape[0]
-net = lambda x, r: (x ** 2).sum() - r ** 2
-
-x = jnp.array([[1, 1],
-               [2, 0]])
-
+#net = lambda x, r: (x ** 2).sum() - r ** 2
+net = lambda x, r: (x ** 2).sum(axis=1) - r ** 2 * jnp.ones(x.shape[0])
+x = jnp.array([[1, 1], [2, 0]])
 x_normalized = x / jnp.sqrt((x**2).sum(axis=1)).reshape(-1, 1)  # lies on the unit circle
-
 y = jnp.array([[1, 1], [-1, 1], [2, 0]])
 y_normalized = y / jnp.sqrt((y**2).sum(axis=1)).reshape(-1, 1)
-
-#db_opt = DB_Top_opt(net, n_sampling=0)
 db_opt = DB_grad(net, y_normalized)
+
+
 # %%
 from jax import grad
-#db_opt.sampled_points = x_normalized
-#db_opt.n_sampling = 2
-
 r = jnp.array([1.0])
-
-#grad(lambda r: ((x_normalized * r) ** 2).sum())(r)
-
 # t_star is the function that gives the parameters t such that the new points
 # lie on the circle of radius r. there are 2 points, and changing the value
 # of r (making it bigger) changes the error of each point by a factor 1.
-print("tstar : ", db_opt.t_star(r))
 grad(lambda r: db_opt.t_star(r).sum())(r)
 
+
 # %%
-db_opt.sampled_points
-# %%
-db_opt.t_star(r).sum()
+opt_t = jnp.zeros(3)
+#print((db_opt._parametrization_normal_lines(y_normalized, r) **2).sum(axis=1))
+print((db_opt._parametrization_normal_lines(opt_t, r) **2).sum(axis=1))
+print(r ** 2 * jnp.ones(3))
+print((db_opt._parametrization_normal_lines(opt_t, r) **2).sum(axis=1) - r ** 2 * jnp.ones(3))
 
 
 
+#return (self._parametrization_normal_lines(t, theta) ** 2).sum(axis=1)\
+#    - theta ** 2 * jnp.ones(self.sampled_points.shape[0])
 
 
+
 # %%
-x = jnp.array([[1, 1],
-               [2, 0]])
-print((x**2).sum(axis=1))
-# %%
-print(jnp.sqrt((x**2).sum(axis=1)))
-# %%
-print(jnp.sqrt((x**2).sum(axis=1)).reshape(-1, 1))
-# %%
-print(x_normalized)
-# %%
-print(x / jnp.sqrt((x**2).sum(axis=1)))
-# %%
-print(x / jnp.sqrt((x**2).sum(axis=1)).reshape(-1, 1))
-# %%
-a = jnp.array([[ 0.7071068,0.7071068],[-0.7071068,0.7071068],[ 1.,0.]])
-b = jnp.zeros([3, 1])
-print(a + b*a)
+print(net(y_normalized, r))
 # %%

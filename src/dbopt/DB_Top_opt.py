@@ -60,7 +60,9 @@ class DB_grad():
         Returns:
             jnp.array: the new points.
         """
-        
+        #print("points : ", self.sampled_points.shape,
+        #      "\n t : ", jnp.expand_dims(t, 1).shape,
+        #      "\n normal vectors : ", self._normal_unit_vectors(theta).shape)
         return self.sampled_points + jnp.expand_dims(t, 1) * self._normal_unit_vectors(theta)
 
 
@@ -81,10 +83,11 @@ class DB_grad():
         """
         
         # Working solution for special case
-        return (self._parametrization_normal_lines(t, theta) ** 2).sum(axis=1)\
-            - theta ** 2 * jnp.ones(self.sampled_points.shape[0])
+        #print("new points : ", self._parametrization_normal_lines(t, theta).shape)
+        #return (self._parametrization_normal_lines(t, theta) ** 2).sum(axis=1)\
+        #    - theta ** 2 * jnp.ones(self.sampled_points.shape[0])
         
-        """points_along_normal_lines = self._parametrization_normal_lines(t, theta)
+        points_along_normal_lines = self._parametrization_normal_lines(t, theta)
         logits = self.net(points_along_normal_lines, theta)
         
         if logits.ndim == 2:
@@ -92,7 +95,7 @@ class DB_grad():
         else :
             losses = logits**2
         return losses
-        #return jnp.mean(losses)"""
+        #return jnp.mean(losses)
     
     
     def _inner_problem(self, t_init, theta): #, n_epochs=30, lr=1e-2):

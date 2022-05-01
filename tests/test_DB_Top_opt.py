@@ -25,7 +25,7 @@ def test_grad_of_unit_circle_sampling():
     # t_star is the function that gives the parameters t such that the new points
     # lie on the circle of radius r. there are 2 points, and changing the value
     # of r (making it bigger) changes the error of each point by a factor 1.
-    net = lambda x, r: (x ** 2).sum() - r ** 2
+    net = lambda x, r: (x ** 2).sum(axis=1) - r ** 2 * jnp.ones(x.shape[0])
     r = jnp.array([1.0])
     x1 = jnp.array([[1, 1], [2, 0]])
     x2 = jnp.array([[]])
