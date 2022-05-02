@@ -44,7 +44,6 @@ class DecisionBoundrayGradient():
         """
         normal_vectors = grad(lambda x : self.net(x, theta).sum())(self.sampled_points)
         norms = jnp.linalg.norm(normal_vectors, axis=1).reshape(-1, 1)
-        #print("normal unit vectors : ", normal_vectors/norms)
         return normal_vectors / norms
     
     def _parametrization_normal_lines(self, t: jnp.array, theta: jnp.array):
@@ -61,10 +60,7 @@ class DecisionBoundrayGradient():
         Returns:
             jnp.array: the new points.
         """
-        #print("points : ", self.sampled_points.shape,
-        #      "\n t : ", jnp.expand_dims(t, 1).shape,
-        #      "\n normal vectors : ", self._normal_unit_vectors(theta).shape)
-        #print("new points : ", self.sampled_points + jnp.expand_dims(t, 1) * self._normal_unit_vectors(theta))
+        
         return self.sampled_points + jnp.expand_dims(t, 1) * self._normal_unit_vectors(theta)
 
 
@@ -86,23 +82,22 @@ class DecisionBoundrayGradient():
         
         # Working solution for special case
         #print("new points : ", self._parametrization_normal_lines(t, theta).shape)
-        return (self._parametrization_normal_lines(t, theta) ** 2).sum(axis=1)\
-            - theta ** 2 * jnp.ones(self.sampled_points.shape[0])
+        #return (self._parametrization_normal_lines(t, theta) ** 2).sum(axis=1)\
+        #    - theta ** 2 * jnp.ones(self.sampled_points.shape[0])
         
-        """points_along_normal_lines = self._parametrization_normal_lines(t, theta)
+        points_along_normal_lines = self._parametrization_normal_lines(t, theta)
         logits = self.net(points_along_normal_lines, theta)
         
         if logits.ndim == 2:
-            deviation_from_decision_boundary = (logits[:, 0]-logits[:, 1])**2
+            #deviation_from_decision_boundary = (logits[:, 0]-logits[:, 1])**2
+            deviation_from_decision_boundary = logits[:, 0]-logits[:, 1]
         else :
-            deviation_from_decision_boundary = logits**2
-        #print("opt cond : ", deviation_from_decision_boundary)
-        print("opt : ", deviation_from_decision_boundary)
+            #deviation_from_decision_boundary = logits**2
+            deviation_from_decision_boundary = logits
         return deviation_from_decision_boundary
-        #return jnp.mean(losses)"""
     
     
-    def _inner_problem(self, t_init, theta): #, n_epochs=30, lr=1e-2):
+    def _inner_problem(self, t_init, theta):
         """This function is the inner optimization problem. It simply samples (with the new
         points) the decision boundary of the network, but with the custom root decorator it
         is possible to get the jacobian of the optimal points wrt the parameters
@@ -114,21 +109,16 @@ class DecisionBoundrayGradient():
             theta (jnp.array): the points that sample the decision boundary
             net (function): the function parametrized by theta
         """
-        # new_points = self._degree_of_freedom(t, theta)
-        # print("inner 2")
-        # return self.sampler.sample(theta, self.net, new_points,
-        #                            lr=lr, epochs=n_epochs, delete_outliers=False)   #TODO create a new method that only
-        #                                                                             #optimizes t, instead of sample
+
         del t_init
-        return jnp.zeros(self.sampled_points.shape[0])  # should have the shape (n_sampling, )
-        #return jnp.zeros_like(self.sampled_points.shape[0])
+        return jnp.zeros(self.sampled_points.shape[0])
+    
         
     def t_star(self, theta):
         """ This function returns the optimal value of t, i.e., the value of t that
         minimizes the distance between the points and the decision boundary.
         """
         t_init = None
-        #print("param normal lines : \n", self._parametrization_normal_lines(jnp.zeros(self.n_sampling), theta))
         return custom_root(self._optimality_condition)\
             (self._inner_problem)(t_init, theta)
     
