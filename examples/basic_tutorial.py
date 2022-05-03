@@ -8,7 +8,7 @@ get_ipython().magic('autoreload 2')
 # importing relevant packages
 import matplotlib.pyplot as plt
 
-from dbopt.DB_sampler import DB_sampler
+from dbopt.DB_sampler import DecisionBoundarySampler
 from dbopt.Bumps import Bumps
 from dbopt.Datasets import Spiral
 from dbopt.FCNN import FCNN
@@ -26,7 +26,7 @@ bumps.plot(ax)
 # sampling the 0-level set of the bumps function
 
 bumps = Bumps()
-sampler = DB_sampler()
+sampler = DecisionBoundarySampler()
 
 fig, (ax1, ax2) = plt.subplots(2, figsize=(11, 11))
 bumps.plot(ax1)

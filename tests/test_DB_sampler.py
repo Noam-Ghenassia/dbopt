@@ -1,5 +1,5 @@
 import pytest
-from dbopt.DB_sampler import DB_sampler
+from dbopt.DB_sampler import DecisionBoundarySampler
 import jax.numpy as jnp
 
 __author__ = "Noam Ghenassia"
@@ -8,7 +8,7 @@ __license__ = "MIT"
 
 
 def test_random_sampling():
-    sampler = DB_sampler(n_points=30, input_dim=3, min=-2, max=1)
+    sampler = DecisionBoundarySampler(n_points=30, input_dim=3, min=-2, max=1)
     assert sampler.points.ndim == 2
     assert sampler.points.shape[0] == 30
     assert sampler.points.shape[1] == 3

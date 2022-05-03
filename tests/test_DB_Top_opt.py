@@ -2,8 +2,9 @@ import pytest
 import jax.numpy as jnp
 from jax import grad, jacrev
 from dbopt.DB_Top_opt import DecisionBoundrayGradient
+from dbopt.DB_Top_opt import SingleCycleDecisionBoundary
 from dbopt.Bumps import Bumps
-from dbopt.DB_sampler import DB_sampler
+from dbopt.DB_sampler import DecisionBoundarySampler
 
 __author__ = "Noam Ghenassia"
 __copyright__ = "Noam Ghenassia"
@@ -43,6 +44,16 @@ def test_grad_of_diagonal_line_sampling():
     db_opt = DecisionBoundrayGradient(net, x)
     assert jnp.allclose(grad(lambda r: db_opt.t_star(r).sum())(r), 4/jnp.sqrt(2))
     assert jnp.allclose(jacrev(lambda r: db_opt.t_star(r))(r), (1/jnp.sqrt(2))*jnp.array([[1.], [1.], [1.], [1.]]))
+
+def test_single_cycle_loss_4_points():
+    net = lambda x, r: (x ** 2).sum(axis=1) - r **2 * jnp.ones(x.shape[0])
+    x = jnp.array([[1., 1.], [1., -1.], [-1., 1.], [-1., -1.]])
+    r = jnp.array([jnp.sqrt(2)])
+    sc = SingleCycleDecisionBoundary(net, x)
+    assert jnp.allclose(sc.topological_loss_with_gradient(r), -2*(2-jnp.sqrt(2))**2)
+    assert jnp.allclose(grad(lambda r: sc.topological_loss_with_gradient(r))(r), -2*jnp.sqrt(2)*(2-jnp.sqrt(2))**2)
+    
+    
     
 
 

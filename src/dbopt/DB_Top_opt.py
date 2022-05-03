@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from typing import Union, Dict, Callable
 from functools import partial
 
@@ -8,7 +9,7 @@ import numpy as np
 import optax
 
 
-from dbopt.DB_sampler import DB_sampler
+from dbopt.DB_sampler import DecisionBoundarySampler
 from dbopt.persistent_gradient import PersistentGradient
 
 
@@ -123,72 +124,99 @@ class DecisionBoundrayGradient():
             (self._inner_problem)(t_init, theta)
     
 ######################################################################
-    
-    
-    # TODO: This should be outside the class
-    #def toploss(self, theta):
-        """This the topological loss that is optimized by the class. It depends on the
-        value of theta.
 
-        Args:
-            theta (jnp.array): the parameter(s) of the funcrion of which we optimize the
-            decision boundary's homology.
 
-        Returns:
-            jnp.array: the value of the topological loss.
-        """
-        """t_init = jnp.zeros_like(self.sampled_points[:, 0])
-        new_points = custom_root(self._optimality_condition)\
-            (self._inner_problem)(t_init, theta)
-        return self.pg.single_cycle(new_points)"""
+class TopologicalGradient(ABC):
+
+    def __init__(self, net, sampled_points):
+        self.sampled_points = sampled_points
+        self.persistent_gradient = PersistentGradient()
+        self.db_grad = DecisionBoundrayGradient(net, sampled_points)
     
-    # TODO: Put this in a separate optimization class
-    def optimize(self, theta_init, n_epochs):
-        """This is the main function of the class. It allows to optimize the
-        topological loss of the decision boundary of net by modifying its parameter(s)
-        theta. The gradient of the topological loss wrt the points is computed by the
-        persistent gradient class, while the dependency of the points on the parameters
-        of the network is computed by differentiating the output of the _inner_problem
-        wrt theta.
+    @abstractmethod
+    def _toploss(self):
+        pass
+    
+    def topological_loss_with_gradient(self, theta):
         
-        Note : a future improvement is to accept a loss function as an additional argument.
-        The loss will be added to the topological loss in order to optimize not only the
-        decision boundary, but also the accuracy of the network.
+        t = self.db_grad.t_star(theta)
+        points_on_decision_boundary = self.db_grad._parametrization_normal_lines(t, theta)
+        return self._toploss(points_on_decision_boundary)
+    
 
-        Args:
-            theta (jnp.array): the parameter we wish to optimize
-            net (function): the function (neural network) parametrized by theta
-        """
+class SingleCycleDecisionBoundary(TopologicalGradient):
+    
+    def __init__(self, net, sampled_points):
+        super().__init__(net, sampled_points)
+    
+    def _toploss(self, points):
         
-        theta = jnp.array(theta_init)
-        optimizer = optax.adam(self.lr)
-        params = {'theta': theta}
-        opt_state = optimizer.init(params)
-        #opt_state = optimizer.init(theta)
-        loss = lambda x: self.toploss(x)     #in later versions this should include cross entropy
-        
-        for epoch in range(n_epochs):
-            grads = grad(loss)(params['theta'])
-            #grads = grad(loss)(theta)
-            updates, opt_state = optimizer.update(grads, opt_state)
-            params = optax.apply_updates(params, updates)
-            #theta = optax.apply_updates(theta, updates)
-            
-            # the points that were initially sampled by the sampler should be frequently updated.
-            # every 5 epochs we set them so the value of new_points, that is, the intersections
-            # of the normal lines with the DB given by the current value of theta.
-            if epoch % 5 ==0:
-                t = jnp.zeros_like(self.sampled_points[:, 0])
-                self.sampled_points = self._inner_problem(t, theta=theta)
-
-
-class TopologicalGradient():
-    """This class is responsible for the computation of the gradient of the topological loss
-    of the decision boundary of the network with respect to the weights of the network.
-    """
-    def __init__(self, net, n_sampling):
-        self.net = net
-        self.n_sampling = n_sampling
-        self.sampler = DB_sampler(n_points=self.n_sampling)
+        pers_diag = self.persistent_gradient._computing_persistence_with_gph(points)
+        # select only the pairs that correspond to 1D features
+        #H1 = pers_diag[pers_diag[:, 2]==1]     # is there a way to make this parallelizable ?
+        H1 = jnp.array([jnp.asarray(pers_pair) for pers_pair in pers_diag if pers_pair[2]==1])
+        lifetimes = H1[:, 1] - H1[:, 0]
+        largest = jnp.argmax(lifetimes)
+        largest_cycle = lifetimes[largest]
+        other_cycles = jnp.delete(lifetimes, largest)
+        return jnp.sum(other_cycles**2) - largest_cycle**2
     
     
+    
+    
+##################################################################
+
+
+#def optimize(self, theta_init, n_epochs):
+"""This is the main function of the class. It allows to optimize the
+topological loss of the decision boundary of net by modifying its parameter(s)
+theta. The gradient of the topological loss wrt the points is computed by the
+persistent gradient class, while the dependency of the points on the parameters
+of the network is computed by differentiating the output of the _inner_problem
+wrt theta.
+
+Note : a future improvement is to accept a loss function as an additional argument.
+The loss will be added to the topological loss in order to optimize not only the
+decision boundary, but also the accuracy of the network.
+
+Args:
+    theta (jnp.array): the parameter we wish to optimize
+    net (function): the function (neural network) parametrized by theta
+"""
+
+"""theta = jnp.array(theta_init)
+optimizer = optax.adam(self.lr)
+params = {'theta': theta}
+opt_state = optimizer.init(params)
+#opt_state = optimizer.init(theta)
+loss = lambda x: self.toploss(x)     #in later versions this should include cross entropy
+
+for epoch in range(n_epochs):
+    grads = grad(loss)(params['theta'])
+    #grads = grad(loss)(theta)
+    updates, opt_state = optimizer.update(grads, opt_state)
+    params = optax.apply_updates(params, updates)
+    #theta = optax.apply_updates(theta, updates)
+    
+    # the points that were initially sampled by the sampler should be frequently updated.
+    # every 5 epochs we set them so the value of new_points, that is, the intersections
+    # of the normal lines with the DB given by the current value of theta.
+    if epoch % 5 ==0:
+        t = jnp.zeros_like(self.sampled_points[:, 0])
+        self.sampled_points = self._inner_problem(t, theta=theta)"""
+
+#def toploss(self, theta):
+"""This the topological loss that is optimized by the class. It depends on the
+value of theta.
+
+Args:
+    theta (jnp.array): the parameter(s) of the funcrion of which we optimize the
+    decision boundary's homology.
+
+Returns:
+    jnp.array: the value of the topological loss.
+"""
+"""t_init = jnp.zeros_like(self.sampled_points[:, 0])
+new_points = custom_root(self._optimality_condition)\
+    (self._inner_problem)(t_init, theta)
+return self.pg.single_cycle(new_points)"""

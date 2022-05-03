@@ -4,7 +4,7 @@ from jax import value_and_grad
 from jax.experimental.optimizers import adam
 import numpy as np
 
-class DB_sampler():
+class DecisionBoundarySampler():
     """This class allows to sample the descision boundary of a neural network. The number of points
     randomly sampled from the latent space should be inputed at class istanciation, while the
     network whose decision boundary is to be sampled is passed as an argument to the sample function.
