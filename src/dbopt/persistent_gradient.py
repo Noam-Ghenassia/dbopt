@@ -99,7 +99,7 @@ class PersistentGradient():
         return persistence_pairs
     
     
-    def single_cycle(self, X):
+    #def single_cycle(self, X):
         """This is an example of a user provided function of persistence, that is
         minimized when the homology has exactly one significant feature in H1.
 
@@ -107,7 +107,7 @@ class PersistentGradient():
             pers_diag (list): the persistence diagram that should be optimized
         """
         
-        pers_diag = self._computing_persistence_with_gph(X)
+        """pers_diag = self._computing_persistence_with_gph(X)
         # select only the pairs that correspond to 1D features
         #H1 = pers_diag[pers_diag[:, 2]==1]     # is there a way to make this parallelizable ?
         H1 = jnp.array([jnp.asarray(pers_pair) for pers_pair in pers_diag if pers_pair[2]==1])
@@ -116,6 +116,6 @@ class PersistentGradient():
         largest = jnp.argmax(lifetimes)
         largest_cycle = lifetimes[largest]
         other_cycles = jnp.delete(lifetimes, largest)
-        return jnp.sum(other_cycles**2) - largest_cycle**2
+        return jnp.sum(other_cycles**2) - largest_cycle**2"""
         
 

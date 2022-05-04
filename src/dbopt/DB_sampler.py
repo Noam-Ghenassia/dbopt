@@ -10,7 +10,7 @@ class DecisionBoundarySampler():
     network whose decision boundary is to be sampled is passed as an argument to the sample function.
     """
 
-    def __init__(self, n_points=1000, epochs=1000,
+    def __init__(self, n_points=1000,
                  input_dim=2, min=-2., max=2.):
         
         self.key = random.PRNGKey(0)
@@ -88,8 +88,8 @@ class DecisionBoundarySampler():
         Returns:
             jax.numpy.ndarray: a sampling of the decision boundary obtained by optimizing a loss that compares the logits.
         """
-        
-        if points==None:
+
+        if points is None:
             opt_init, opt_update, get_points = adam(lr)
             opt_state = opt_init(self.points)
             

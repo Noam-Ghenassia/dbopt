@@ -3,6 +3,7 @@ import jax.numpy as jnp
 from jax import grad, jacrev
 from dbopt.DB_Top_opt import DecisionBoundrayGradient
 from dbopt.DB_Top_opt import SingleCycleDecisionBoundary
+from dbopt.DB_Top_opt import SingleConnectedComponent
 from dbopt.Bumps import Bumps
 from dbopt.DB_sampler import DecisionBoundarySampler
 
@@ -54,7 +55,10 @@ def test_single_cycle_loss_4_points():
     assert jnp.allclose(grad(lambda r: sc.topological_loss_with_gradient(r))(r), -2*jnp.sqrt(2)*(2-jnp.sqrt(2))**2)
     
     
-    
-
-
-# TODO: add bump test with computed gradient (!only the gradient) of topological loss
+def test_one_connected_component_with_bumps():
+    bumps = Bumps()
+    theta = jnp.array([0.])
+    net = lambda x, theta: bumps.level(x, theta)
+    sampling = jnp.array([[-0.5325, 0.], [0.5325, 0]])
+    sc = SingleConnectedComponent(net=net, sampled_points=sampling)
+    assert jnp.allclose(grad(lambda theta: sc.topological_loss_with_gradient(theta))(theta), 4.86983)
