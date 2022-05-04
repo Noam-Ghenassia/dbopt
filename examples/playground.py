@@ -24,9 +24,13 @@ from dbopt.DB_Top_opt import SingleCycleAndConnectedComponent
 from dbopt.DB_Top_opt import DecisionBoundrayOptimizer
 from dbopt.persistent_gradient import PersistentGradient  # type: ignore
 
+# %%
+#bumps = Bumps()
+#fig, (ax1, ax2) = plt.subplots(2, figsize=(11, 11))
+#bumps.plot(ax1, True)
+#bumps.plot(ax2, False)
 
-
-# # %%
+# %%
 # from dbopt.ImpliciteDifferentiationSample import ImpliciteDifferentationSample as d1
 # #from dbopt.ImpliciteDifferentiationSample import DifferentiationSample as d2
 
@@ -45,7 +49,7 @@ from dbopt.persistent_gradient import PersistentGradient  # type: ignore
 # from jax import grad
 # from dbopt.ImpliciteDifferentiationSample import ImpliciteDifferentationSample
 
-# # %%
+# %%
 # d1 = ImpliciteDifferentationSample()
 
 # grad(d1.implicite_differentiation)(jnp.array([1.0]))
@@ -54,7 +58,7 @@ from dbopt.persistent_gradient import PersistentGradient  # type: ignore
 # print([i for i in l if i[1]%2==0])
 # #print(l[l[:, 1]%2==0])
 
-# # %%
+# %%
 
 # bumps = Bumps()
 # opt = DB_Top_opt(bumps.level, n_sampling=1000)

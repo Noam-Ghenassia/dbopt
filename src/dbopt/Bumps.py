@@ -28,7 +28,7 @@ class Bumps():
         b = jnp.exp(-1.5*((x[:, 0]+1)**2 + x[:, 1]**2))
         return a+b-theta-.75
     
-    def plot(self, figure, theta=0,  x_min=-2., x_max=2., y_min=-2., y_max=2.):
+    def plot(self, figure, theta=0, contourf=False,  x_min=-2., x_max=2., y_min=-2., y_max=2.):
         """This function allows to plot the bumps function on a given figure.
 
         Args:
@@ -45,5 +45,7 @@ class Bumps():
         grid = jnp.concatenate([grid_x, grid_y], axis=1)
         
         out = self.level(grid, theta).reshape(len(x), -1)
-        #figure.contourf(jnp.meshgrid(x, y)[0], jnp.meshgrid(x, y)[1], out)
-        figure.contour(out, levels = 0)
+        if contourf:
+            figure.contourf(jnp.meshgrid(x, y)[0], jnp.meshgrid(x, y)[1], out)
+        else:
+            figure.contour(out, levels = 0, extent=(-2., 2., -2., 2.))
