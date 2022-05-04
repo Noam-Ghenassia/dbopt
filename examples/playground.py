@@ -134,23 +134,25 @@ from dbopt.persistent_gradient import PersistentGradient  # type: ignore
 #print(sc.topological_loss_with_gradient(theta2))
 
 # %%
-bumps = Bumps()
-net = lambda x, theta: bumps.level(x, theta)
-theta = jnp.array(0.)
+#bumps = Bumps()
+#net = lambda x, theta: bumps.level(x, theta)
+#theta = jnp.array(0.)
 
-db_opt = DecisionBoundrayOptimizer(net, theta, 200, sampling_epochs=1000,
-                                   update_epochs=3, optimization_lr=0.01)
+#db_opt = DecisionBoundrayOptimizer(net, theta, 200, sampling_epochs=1000,
+#                                   update_epochs=3, optimization_lr=0.01)
 
-fig, (ax1, ax2) = plt.subplots(2, figsize=(11, 11))
-bumps.plot(ax1)
-pts = db_opt.get_points()
-ax1.scatter(pts[:, 0], pts[:, 1], color='red')
+#fig, (ax1, ax2) = plt.subplots(2, figsize=(11, 11))
+#bumps.plot(ax1)
+#pts = db_opt.get_points()
+#ax1.scatter(pts[:, 0], pts[:, 1], color='red')
 
-theta = db_opt.optimize(n_epochs=15)
+#theta = db_opt.optimize(n_epochs=15)
 
-bumps.plot(ax2, theta)
-pts = db_opt.get_points()
-ax2.scatter(pts[:, 0], pts[:, 1], color='red')
+#bumps.plot(ax2, theta)
+#pts = db_opt.get_points()
+#ax2.scatter(pts[:, 0], pts[:, 1], color='red')
 
 
 # %%
+nn = FCNN()
+# HOW TO GET THE PARAMETERS ?

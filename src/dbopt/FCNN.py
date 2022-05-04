@@ -8,9 +8,7 @@ from jax.experimental import stax
 from jax.experimental import optimizers
 from jax import jit, grad
 from jax.nn import softmax
-#from jax.nn import Elu, log_softmax
-#from flax.linen import Dense
-from jax.experimental.stax import Dense, Relu, LogSoftmax, Tanh, Sigmoid, Elu
+from jax.experimental.stax import Dense, LogSoftmax, Elu
 
 
 class FCNN():
@@ -33,6 +31,9 @@ class FCNN():
         self.num_epochs = num_epochs,
         self.batch_size = batch_size,
         self.momentum_mass = momentum_mass
+    
+    def get_params(self):
+        return 
     
     
     def _loss(self, params, batch):
@@ -172,3 +173,4 @@ class FCNN():
                 #test_acc = accuracy(params, (test_data, one_hot(test_labels)))
                 print('Epoch : ', epoch, ', Train accuracy : ', train_acc)
                 
+

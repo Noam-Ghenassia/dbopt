@@ -20,7 +20,7 @@ from dbopt.DB_Top_opt import DecisionBoundrayGradient
 
 bumps = Bumps()
 fig, ax = plt.subplots()
-bumps.plot(ax)
+bumps.plot(ax, contourf=True)
 
 #%%
 # sampling the 0-level set of the bumps function
@@ -43,7 +43,7 @@ ax2.scatter(pts[:, 0], pts[:, 1], color='red')
 # %%
 # testing the creation of the spiral dataset
 
-spiral = Spiral(100)
+spiral = Spiral(50)
 fig, ax = plt.subplots()
 spiral.plot(ax)
 
@@ -52,7 +52,7 @@ spiral.plot(ax)
 # fitting the sprial dataset with the neural network of the FCNN class
 
 nn = FCNN(num_epochs=130)
-spiral = Spiral(100)
+spiral = Spiral(50)
 data, labels = spiral.get_dataset()
 
 fig, (ax1, ax2) = plt.subplots(2, figsize=(11, 11))
