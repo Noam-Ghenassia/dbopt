@@ -241,13 +241,13 @@ class DecisionBoundrayOptimizer():
         """_summary_
 
         Args:
-            net (_type_): _description_
-            theta (_type_): _description_
-            n_sampling (_type_): _description_
-            sampling_epochs (int, optional): _description_. Defaults to 1000.
-            update_epochs (int, optional): _description_. Defaults to 3.
-            sampling_lr (float, optional): _description_. Defaults to 0.01.
-            optimization_lr (float, optional): _description_. Defaults to 0.01.
+            net (Callable): The network that is being optimized.
+            theta (jnp.array): The parameters of the network.
+            n_sampling (int): The number of points to sample the decision boundary.
+            sampling_epochs (int, optional): The number of sampling epochs. Defaults to 1000.
+            update_epochs (int, optional): The number of sampling epochs between optimization epochs. Defaults to 3.
+            sampling_lr (float, optional): The learning rate of the sampler. Defaults to 0.01.
+            optimization_lr (float, optional): The learning rate applied for the optimization. Defaults to 0.01.
         """
         self.net = net
         self.theta = theta
