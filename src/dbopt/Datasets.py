@@ -9,9 +9,11 @@ class Dataset_2D(ABC):
 
     n_points (int) : the number of samples in each class.
     """
-    def __init__(self, n_points):
+    def __init__(self, n_points, key):
         self.n_points = n_points
-        self.data, self.labels = self._create_dataset()
+        self.key = key
+        #self.data, self.labels = self._create_dataset()
+        self.dataset = self._create_dataset()
         super().__init__()
     
     @abstractmethod
@@ -24,10 +26,12 @@ class Dataset_2D(ABC):
         Args:
             figure (matplotlib.axes.Axes): the pyplot figure on which the dataset is plotted.
         """
-        ind_0 = jnp.where(self.labels==0)
-        ind_1 = jnp.where(self.labels==1)
-        figure.plot(self.data[ind_0, 0], self.data[ind_0, 1], 'bo',
-                    self.data[ind_1, 0], self.data[ind_1, 1], 'ro')
+        data = self.dataset[:, 1:]
+        labels = jnp.squeeze(self.dataset[:, :1], axis=1)
+        ind_0 = jnp.where(labels==0)
+        ind_1 = jnp.where(labels==1)
+        figure.plot(data[ind_0, 0], data[ind_0, 1], 'bo',
+                    data[ind_1, 0], data[ind_1, 1], 'ro')
 
     def get_dataset(self):
         """Accessor method.
@@ -35,18 +39,22 @@ class Dataset_2D(ABC):
         Returns:
             (jnp.array, jnp.array): the data and labels of the dataset.
         """
-        return self.data, self.labels
+        #return self.data, self.labels
+        return self.dataset
 
+# def split_dataset(dataset, test_size: float=0.2) -> Tuple[dataset, datset]:
+    
+#     return train_ds, test_ds
 
 class Spiral(Dataset_2D):
 
-    def __init__(self, n_points):
-        super().__init__(n_points)
+    def __init__(self, n_points, key):
+        super().__init__(n_points, key)
     
-    def _create_dataset(self, plot=False):
+    def _create_dataset(self):
         
-        key = random.PRNGKey(0)
-        key1, key2 = random.split(key)
+        #key = random.PRNGKey(0)
+        key1, key2 = random.split(self.key)
         
         key11, key12 = random.split(key1)
         theta1 = 2*math.pi*random.uniform(key=key11, shape=(self.n_points,), minval=0, maxval=1.5)
@@ -68,8 +76,9 @@ class Spiral(Dataset_2D):
         
         dataset = jnp.concatenate([C1, C2], axis=0)
         dataset = random.permutation(random.PRNGKey(0), dataset)
-        data = dataset[:, 1:]
-        labels = dataset[:, :1]
-        labels = labels.reshape(-1)
+        #data = dataset[:, 1:]
+        #labels = dataset[:, :1]
+        #labels = labels.reshape(-1)
 
-        return data, labels
+        #return data, labels
+        return dataset

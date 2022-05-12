@@ -83,9 +83,10 @@ class DecisionBoundrayGradient():
         Returns:
             float: the points loss, i.e., the sum of the squared distances to the DB
         """
-        
         points_along_normal_lines = self._parametrization_normal_lines(t, theta)
+        # (num_points, input_dimension)
         logits = self.net(points_along_normal_lines, theta)
+        # (num_points, output_dimension)
         
         if logits.ndim == 2:
             #deviation_from_decision_boundary = (logits[:, 0]-logits[:, 1])**2
@@ -153,7 +154,7 @@ class TopologicalLoss(ABC):
         self.sampled_points = new_points
         
     
-    def topological_loss_with_gradient(self, theta):
+    def differentiable_topological_loss(self, theta):
         """This function calls the specific topological loss indicated by the user,
         and computes its value at the sampled points, while allowing to backpropagate
         back to the weights of the network.
@@ -256,7 +257,7 @@ class DecisionBoundrayOptimizer():
         self.sampler = DecisionBoundarySampler(n_points=n_sampling)
         self.sampled_points = self.sampler.sample(theta, net, points=None, lr=sampling_lr, epochs=sampling_epochs)
         self.toploss = SingleCycleDecisionBoundary(net=net, sampled_points=self.sampled_points)
-        #self.toploss = toploss(net=net, sampled_points=self.sampled_points)
+        #self.toploss = toploss(net=net, sampled_points=self.sampled_points)            # TODO: make the user able to choose topological loss
     
     def _update_sampled_points(self):
         """This function updates the sampled points so they remain on the decsion boundary
@@ -286,7 +287,7 @@ class DecisionBoundrayOptimizer():
         params = theta
         opt_state = optimizer.init(params)
         #opt_state = optimizer.init(theta)
-        loss = lambda x: self.toploss.topological_loss_with_gradient(x)     #in later versions this should include cross entropy
+        loss = lambda x: self.toploss.differentiable_topological_loss(x)     #in later versions this should include cross entropy
 
         for epoch in range(n_epochs):
             #grads = grad(loss)(params['theta'])

@@ -16,13 +16,14 @@ import matplotlib.pyplot as plt
 from dbopt.DB_sampler import DecisionBoundarySampler
 from dbopt.Bumps import Bumps
 from dbopt.Datasets import Spiral
-from dbopt.FCNN import FCNN
-#from dbopt.DB_Top_opt import DecisionBoundrayGradient, TopologicalLosses
+#from dbopt.FCNN import FCNN
+from dbopt.DB_Top_opt import DecisionBoundrayGradient, TopologicalLosses
 from dbopt.DB_Top_opt import DecisionBoundrayGradient
 from dbopt.DB_Top_opt import SingleCycleDecisionBoundary
 from dbopt.DB_Top_opt import SingleCycleAndConnectedComponent
 from dbopt.DB_Top_opt import DecisionBoundrayOptimizer
 from dbopt.persistent_gradient import PersistentGradient  # type: ignore
+#from dbopt.FCNN import _FCNN
 
 # %%
 #bumps = Bumps()
@@ -153,6 +154,4 @@ from dbopt.persistent_gradient import PersistentGradient  # type: ignore
 #ax2.scatter(pts[:, 0], pts[:, 1], color='red')
 
 
-# %%
-nn = FCNN()
-# HOW TO GET THE PARAMETERS ?
+

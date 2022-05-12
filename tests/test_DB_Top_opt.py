@@ -35,7 +35,7 @@ def test_grad_of_unit_circle_sampling():
     x2 = jnp.array([[1, 1], [-1, 1], [1, 2], [2, 1], [0, -1]])
     x2_normalized = 3*(x2 / jnp.sqrt((x2**2).sum(axis=1)).reshape(-1, 1))
     db_opt = DecisionBoundrayGradient(net, x2_normalized)
-    assert jnp.allclose(grad(lambda r: db_opt.t_star(r).sum())(r), 5.)
+    assert jnp.allclose(grad(lambda r: db_opt.t_star(r).sum())(r), 5.0)
     assert jnp.allclose(jacrev(lambda r:  db_opt.t_star(r))(r), jnp.array([[1.], [1.], [1.], [1.], [1.]]))
 
 def test_grad_of_diagonal_line_sampling():
@@ -51,8 +51,8 @@ def test_single_cycle_loss_4_points():
     x = jnp.array([[1., 1.], [1., -1.], [-1., 1.], [-1., -1.]])
     r = jnp.array([jnp.sqrt(2)])
     sc = SingleCycleDecisionBoundary(net, x)
-    assert jnp.allclose(sc.topological_loss_with_gradient(r), -2*(2-jnp.sqrt(2))**2)
-    assert jnp.allclose(grad(lambda r: sc.topological_loss_with_gradient(r))(r), -2*jnp.sqrt(2)*(2-jnp.sqrt(2))**2)
+    assert jnp.allclose(sc.differentiable_topological_loss(r), -2*(2-jnp.sqrt(2))**2)
+    assert jnp.allclose(grad(lambda r: sc.differentiable_topological_loss(r))(r), -2*jnp.sqrt(2)*(2-jnp.sqrt(2))**2)
     
     
 def test_one_connected_component_with_bumps():
@@ -61,4 +61,6 @@ def test_one_connected_component_with_bumps():
     net = lambda x, theta: bumps.level(x, theta)
     sampling = jnp.array([[-0.5325, 0.], [0.5325, 0]])
     sc = SingleConnectedComponent(net=net, sampled_points=sampling)
-    assert jnp.allclose(grad(lambda theta: sc.topological_loss_with_gradient(theta))(theta), 4.86983)
+    assert jnp.allclose(grad(lambda theta: sc.differentiable_topological_loss(theta))(theta), 4.86983)      #TODO : trhe same, with
+                                                                                                            # severall values of theta,
+                                                                                                            # and explicit formula
