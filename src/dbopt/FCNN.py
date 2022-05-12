@@ -14,13 +14,28 @@ import optax
 
 
 class FCNN(nn.Module):
-    
+    """A fully connected neural network. When instanciated, it
+    should be initialized with a dummy input with the desired
+    shape, e.g., params = network.init(init_key, x_init).
+    """
     num_neurons_per_layer: Sequence[int]
+    layers: Sequence[Callable]
 
     def setup(self):
+        """This function generates the structure of the network.
+        It is automatically called when an FCNN object is instaciated.
+        """
         self.layers = [nn.Dense(n) for n in self.num_neurons_per_layer]
 
     def __call__(self, x):
+        """This function gives the output of the network for input x.
+
+        Args:
+            x (jnp.array): The input.
+
+        Returns:
+            jnp.array: The output.
+        """
         activation = x
         for i, layer in enumerate(self.layers):
             activation = layer(activation)
@@ -29,6 +44,17 @@ class FCNN(nn.Module):
         return jnp.exp(nn.log_softmax(activation))
     
     def make_loss_fn(self, data, labels):
+        """This function allows to create a categorical cross-entropy
+        loss function that is evaluated over a given set of data points
+        and corresponding labels.
+
+        Args:
+            data (jnp.array): The datapoints.
+            labels (jnp.array): The corresponding labels.
+            
+        Returns:
+            Callable: the cross-entropy loss function.
+        """
         
         def loss_fn(params):
             preds = self.apply(params, data)
@@ -39,7 +65,16 @@ class FCNN(nn.Module):
         return loss_fn
     
     def make_batches(self, key, dataset, batch_size=64):
-        
+        """This function allows to partition the dataset into batches with
+        specified size. 
+
+        Args:
+            dataset (jnp.array): The dataset that is partitionned.
+            batch_size (int, optional): The size of the returned batches. Defaults to 64.
+
+        Returns:
+            tuple: The batches.
+        """
         n_points = dataset.shape[0]
         remainder = n_points % batch_size
         num_full_batches = (n_points - remainder)/batch_size
@@ -50,14 +85,24 @@ class FCNN(nn.Module):
         batches_list.append(permuted_dataset[-remainder-1:-1, :])
         return batches_list
     
-    def make_optimizer(self, params):
+    def _make_optimizer(self, params):
         opt = optax.adam(learning_rate=0.01)
         opt_state = opt.init(params)
         return opt, opt_state
     
     def train(self, key, params,  dataset, epochs):
-        print('started training')
-        optimizer, opt_state = self.make_optimizer(params)
+        """This function allows to rain the neural network. The parameters
+        of the network should be passed as argument after initialization.
+
+        Args:
+            params (jax.FrozenDict): The parameters of the network.
+            dataset (jnp.array): The training set.
+            epochs (int): The number of training epochs.
+
+        Returns:
+            jax.FrozenDict: The network's parameters after training.
+        """
+        optimizer, opt_state = self._make_optimizer(params)
         for epoch in range(epochs):
             key, batch_key = random.split(key)
             batches = self.make_batches(batch_key, dataset)
@@ -65,14 +110,14 @@ class FCNN(nn.Module):
             for batch_nb, batch in enumerate(batches):
                 batch_data = batch[:, 1:]
                 batch_labels = jnp.squeeze(batch[:, :1], axis=1)
-                loss = self.make_loss_fn(batch_data, batch_labels)
-                loss, grads = jax.value_and_grad(loss)(params)
-                epoch_loss = epoch_loss.at[batch_nb].set(loss)
+                loss_fn = self.make_loss_fn(batch_data, batch_labels)
+                loss_fn, grads = jax.value_and_grad(loss_fn)(params)
+                epoch_loss = epoch_loss.at[batch_nb].set(loss_fn)
                 updates, opt_state = optimizer.update(grads, opt_state)
                 params = optax.apply_updates(params, updates)
             
-            if epoch % 5 == 0:
-                print(f'epoch {epoch}, loss = {loss}')
+            if epoch % 25 == 0:
+                print(f'epoch {epoch}, loss = {loss_fn}')
         
         return params
     

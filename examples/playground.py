@@ -16,8 +16,8 @@ import matplotlib.pyplot as plt
 from dbopt.DB_sampler import DecisionBoundarySampler
 from dbopt.Bumps import Bumps
 from dbopt.Datasets import Spiral
-#from dbopt.FCNN import FCNN
-from dbopt.DB_Top_opt import DecisionBoundrayGradient, TopologicalLosses
+from dbopt.FCNN import FCNN
+from dbopt.DB_Top_opt import DecisionBoundrayGradient
 from dbopt.DB_Top_opt import DecisionBoundrayGradient
 from dbopt.DB_Top_opt import SingleCycleDecisionBoundary
 from dbopt.DB_Top_opt import SingleCycleAndConnectedComponent
@@ -135,23 +135,49 @@ from dbopt.persistent_gradient import PersistentGradient  # type: ignore
 #print(sc.topological_loss_with_gradient(theta2))
 
 # %%
-#bumps = Bumps()
-#net = lambda x, theta: bumps.level(x, theta)
-#theta = jnp.array(0.)
+bumps = Bumps()
+net = lambda x, theta: bumps.level(x, theta)
+theta = jnp.array(0.)
 
-#db_opt = DecisionBoundrayOptimizer(net, theta, 200, sampling_epochs=1000,
-#                                   update_epochs=3, optimization_lr=0.01)
+db_opt = DecisionBoundrayOptimizer(net, theta, 200, sampling_epochs=1000,
+                                  update_epochs=25, optimization_lr=0.01)
 
-#fig, (ax1, ax2) = plt.subplots(2, figsize=(11, 11))
-#bumps.plot(ax1)
-#pts = db_opt.get_points()
-#ax1.scatter(pts[:, 0], pts[:, 1], color='red')
+fig, (ax1, ax2) = plt.subplots(2, figsize=(11, 11))
+bumps.plot(ax1)
+pts = db_opt.get_points()
+ax1.scatter(pts[:, 0], pts[:, 1], color='red')
 
-#theta = db_opt.optimize(n_epochs=15)
+theta = db_opt.optimize(n_epochs=15)
 
-#bumps.plot(ax2, theta)
-#pts = db_opt.get_points()
-#ax2.scatter(pts[:, 0], pts[:, 1], color='red')
+bumps.plot(ax2, theta)
+pts = db_opt.get_points()
+ax2.scatter(pts[:, 0], pts[:, 1], color='red')
 
 
 
+
+# %%
+seed = 23
+key = random.PRNGKey(seed)
+
+spiral = Spiral(75)
+dataset = spiral.get_dataset()
+
+net = FCNN(num_neurons_per_layer=[10, 10, 10, 10, 10, 2])
+key, init_x_key = random.split(key)
+x_init = random.uniform(init_x_key, (2,))
+key, init_key = random.split(key)
+params = net.init(init_key, x_init)
+
+key, train_key = random.split(key)
+params = net.train(train_key, params, dataset, 150)
+
+fig, (ax1, ax2) = plt.subplots(2, figsize=(11, 11))
+spiral.plot(ax1)
+net.plot_decision_boundary(params, ax1)
+
+db_opt = DecisionBoundrayOptimizer(net, params, 200, sampling_epochs=1000,
+                                  update_epochs=25, optimization_lr=0.01)
+
+spiral.plot(ax2)
+net.plot_decision_boundary(params, ax2)

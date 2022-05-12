@@ -41,20 +41,21 @@ class DecisionBoundarySampler():
             jax.numpy.ndarray: the loss value
         """
 
-        logits = net(points, theta)
+        preds = net(points, theta)     #TODO: add an apply method to bumpy so we can use it the same way
+        #preds = net.apply(theta, points)
         
-        if logits.ndim == 2:
+        if preds.ndim == 2:
             if squaredDiff:
-                losses = (logits[:, 0]-logits[:, 1])**2
+                losses = (preds[:, 0]-preds[:, 1])**2
             else :
-                losses = jnp.abs(logits[:, 0]-logits[:, 1])
+                losses = jnp.abs(preds[:, 0]-preds[:, 1])
         else :
             # We add this for the case where net isn't a neural network. In this case, the loss is
             # minimized wherever net outputs 0, i.e., at the 0-level set of net.
             if squaredDiff:
-                losses = logits**2
+                losses = preds**2
             else :
-                losses = jnp.abs(logits)
+                losses = jnp.abs(preds)
         
         if return_losses :
             return jnp.mean(losses), losses
