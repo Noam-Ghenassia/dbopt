@@ -67,6 +67,7 @@ class PersistentGradient():
                 first 2 dimensions) where the last dimension 
                 contains the homology dimension
         """
+
         output = ripser_parallel(np.asarray(stop_gradient(X)),
                                  maxdim=max(self.homology_dimensions),
                                  thresh=self.max_edge_length,
@@ -97,25 +98,6 @@ class PersistentGradient():
         #persistence_pairs = jnp.array([jnp.array(pair) for pair in persistence_pairs])
         #print("array : ", type(persistence_pairs))
         return persistence_pairs
-    
-    
-    #def single_cycle(self, X):
-        """This is an example of a user provided function of persistence, that is
-        minimized when the homology has exactly one significant feature in H1.
 
-        Args:
-            pers_diag (list): the persistence diagram that should be optimized
-        """
-        
-        """pers_diag = self._computing_persistence_with_gph(X)
-        # select only the pairs that correspond to 1D features
-        #H1 = pers_diag[pers_diag[:, 2]==1]     # is there a way to make this parallelizable ?
-        H1 = jnp.array([jnp.asarray(pers_pair) for pers_pair in pers_diag if pers_pair[2]==1])
-        print(H1.shape)
-        lifetimes = H1[:, 1] - H1[:, 0]
-        largest = jnp.argmax(lifetimes)
-        largest_cycle = lifetimes[largest]
-        other_cycles = jnp.delete(lifetimes, largest)
-        return jnp.sum(other_cycles**2) - largest_cycle**2"""
         
 

@@ -41,8 +41,8 @@ class DecisionBoundarySampler():
             jax.numpy.ndarray: the loss value
         """
 
-        preds = net(points, theta)     #TODO: add an apply method to bumpy so we can use it the same way
-        #preds = net.apply(theta, points)
+        #preds = net(points, theta)     #TODO: add an apply method to bumpy so we can use it the same way
+        preds = net.apply(theta, points)
         
         if preds.ndim == 2:
             if squaredDiff:

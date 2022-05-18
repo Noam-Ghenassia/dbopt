@@ -136,11 +136,14 @@ from dbopt.persistent_gradient import PersistentGradient  # type: ignore
 
 # %%
 bumps = Bumps()
-net = lambda x, theta: bumps.level(x, theta)
+#net = lambda theta, x: bumps.level(x, theta)
+net = bumps
 theta = jnp.array(0.)
 
 db_opt = DecisionBoundrayOptimizer(net, theta, 200, sampling_epochs=1000,
-                                  update_epochs=25, optimization_lr=0.01)
+                                  update_epochs=25, optimization_lr=0.01,
+                                  loss_name="single_cycle_and_connected_component",
+                                  with_logits=False)
 
 fig, (ax1, ax2) = plt.subplots(2, figsize=(11, 11))
 bumps.plot(ax1)
@@ -153,6 +156,9 @@ bumps.plot(ax2, theta)
 pts = db_opt.get_points()
 ax2.scatter(pts[:, 0], pts[:, 1], color='red')
 
+#########################################################################
+######################## DONE WITH THE BUMPS ############################
+#########################################################################
 
 
 
@@ -160,7 +166,8 @@ ax2.scatter(pts[:, 0], pts[:, 1], color='red')
 seed = 23
 key = random.PRNGKey(seed)
 
-spiral = Spiral(75)
+key, ds_key = random.split(key)
+spiral = Spiral(75, ds_key)
 dataset = spiral.get_dataset()
 
 net = FCNN(num_neurons_per_layer=[10, 10, 10, 10, 10, 2])
@@ -172,12 +179,37 @@ params = net.init(init_key, x_init)
 key, train_key = random.split(key)
 params = net.train(train_key, params, dataset, 150)
 
+print('done fitting the network')
+
+#%%
 fig, (ax1, ax2) = plt.subplots(2, figsize=(11, 11))
 spiral.plot(ax1)
 net.plot_decision_boundary(params, ax1)
 
-db_opt = DecisionBoundrayOptimizer(net, params, 200, sampling_epochs=1000,
-                                  update_epochs=25, optimization_lr=0.01)
+db_opt = DecisionBoundrayOptimizer(net, params, n_sampling=800, sampling_epochs=250,
+                                  loss_name="single_cycle_and_connected_component",
+                                  update_epochs=25, optimization_lr=1e-3, min=-10., max=10.)
+print('done sampling')
 
 spiral.plot(ax2)
 net.plot_decision_boundary(params, ax2)
+ax2.scatter(db_opt.get_points()[:, 0], db_opt.get_points()[:, 1], color='green')
+
+print(db_opt.get_points())
+print(db_opt.get_points().shape)
+
+# %%
+fig, (ax1, ax2) = plt.subplots(2, figsize=(11, 11))
+
+spiral.plot(ax1)
+net.plot_decision_boundary(params, ax1)
+ax1.scatter(db_opt.get_points()[:, 0], db_opt.get_points()[:, 1], color='green')
+
+params = db_opt.optimize(n_epochs=10)
+
+spiral.plot(ax2)
+net.plot_decision_boundary(params, ax2)
+ax2.scatter(db_opt.get_points()[:, 0], db_opt.get_points()[:, 1], color='green')
+
+
+# %%

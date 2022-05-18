@@ -11,7 +11,7 @@ class Bumps():
     """
     
     @partial(jit, static_argnums=(0,))
-    def level(self, x, theta=0):
+    def level(self, x, theta):
         """The model function. It is the sum of two gaussian kernels centered at (0, -1) and (0, 1),
         to which we subtract (0.75 + theta). Theta can be viewed as a hyperparameter of the function,
         and changing its value modifies the homology of the 0-level set (by analogy to the weights of
@@ -27,6 +27,9 @@ class Bumps():
         a = jnp.exp(-1.5*((x[:, 0]-1)**2 + x[:, 1]**2))
         b = jnp.exp(-1.5*((x[:, 0]+1)**2 + x[:, 1]**2))
         return a+b-theta-.75
+    
+    def apply(self, theta, x):
+        return self.level(x, theta)
     
     def plot(self, figure, theta=0, contourf=False,  x_min=-2., x_max=2., y_min=-2., y_max=2.):
         """This function allows to plot the bumps function on a given figure.

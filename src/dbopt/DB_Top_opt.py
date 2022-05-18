@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Union, Dict, Callable
 from functools import partial
+from haiku import value_and_grad
 
 from jax import numpy as jnp
 from jax import jit, jacfwd, grad
@@ -29,12 +30,28 @@ class DecisionBoundrayGradient():
     
     """
     
-    def __init__(self, net: callable, sampled_points: jnp.array):
+    def __init__(self, net: callable, sampled_points: jnp.array, with_logits=True):
         self.net: Callable[[jnp.array], jnp.array] = net
         self.sampled_points = sampled_points
+        self.with_logits = with_logits
     
     def get_points(self):
         return self.sampled_points
+    
+    def _difference_of_the_logits(self, x, theta):
+        """This function returns the difference of the logits, evaluated at the points in X.
+        The gradient of the sum of its outputs gives the normal vectors of the decision
+        boundary, evaluated at the points in X.
+
+        Args:
+            x (jnp.array): The points at which the function is evaluated.
+            theta (jax.FrozenDict): The parameters of the network.
+
+        Returns:
+            _type_: _description_
+        """
+        logits = self.net.apply(theta, x)
+        return logits[:, 1] - logits[:, 0]
     
     def _normal_unit_vectors(self, theta: Union[jnp.array, Dict[str, jnp.array]]):
         """This function returns a set of vectors that are normal to the decision boundary
@@ -47,7 +64,10 @@ class DecisionBoundrayGradient():
             jnp.array: an n*d matrix with rows the normal vectors of the decision boundary
             evaluated at the points sampled by the sampler.
         """
-        normal_vectors = grad(lambda x : self.net(x, theta).sum())(self.sampled_points)
+        if self.with_logits:
+            normal_vectors = grad(lambda x : self._difference_of_the_logits(x, theta).sum())(self.sampled_points)
+        else:
+            normal_vectors = grad(lambda x : self.net(x, theta).sum())(self.sampled_points)
         norms = jnp.linalg.norm(normal_vectors, axis=1).reshape(-1, 1)
         return normal_vectors / norms
     
@@ -65,7 +85,7 @@ class DecisionBoundrayGradient():
         Returns:
             jnp.array: the new points.
         """
-        
+
         return self.sampled_points + jnp.expand_dims(t, 1) * self._normal_unit_vectors(theta)
 
 
@@ -84,15 +104,12 @@ class DecisionBoundrayGradient():
             float: the points loss, i.e., the sum of the squared distances to the DB
         """
         points_along_normal_lines = self._parametrization_normal_lines(t, theta)
-        # (num_points, input_dimension)
-        logits = self.net(points_along_normal_lines, theta)
-        # (num_points, output_dimension)
+        #logits = self.net(points_along_normal_lines, theta)
+        logits = self.net.apply(theta, points_along_normal_lines)
         
         if logits.ndim == 2:
-            #deviation_from_decision_boundary = (logits[:, 0]-logits[:, 1])**2
             deviation_from_decision_boundary = logits[:, 0]-logits[:, 1]
         else :
-            #deviation_from_decision_boundary = logits**2
             deviation_from_decision_boundary = logits
         return deviation_from_decision_boundary
     
@@ -129,7 +146,7 @@ class TopologicalLoss(ABC):
     """This is the abstract from which the different topological losses are inherited.
     """
     
-    def __init__(self, net, sampled_points):
+    def __init__(self, net, sampled_points, with_logits=True):
         """
         Args:
             net (Callable): the network that is being optimized.
@@ -137,7 +154,7 @@ class TopologicalLoss(ABC):
         """
         self.sampled_points = sampled_points
         self.persistent_gradient = PersistentGradient()
-        self.db_grad = DecisionBoundrayGradient(net, sampled_points)
+        self.db_grad = DecisionBoundrayGradient(net, sampled_points, with_logits=with_logits)
     
     @abstractmethod
     def _toploss(self):
@@ -182,13 +199,13 @@ class SingleCycleDecisionBoundary(TopologicalLoss):
         
         pers_diag = self.persistent_gradient._computing_persistence_with_gph(parametrized_sampling)
         # select only the pairs that correspond to 1D features
-        #H1 = pers_diag[pers_diag[:, 2]==1]     # is there a way to make this parallelizable ?
         H1 = jnp.array([jnp.asarray(pers_pair) for pers_pair in pers_diag if pers_pair[2]==1])
         lifetimes = H1[:, 1] - H1[:, 0]
         largest = jnp.argmax(lifetimes)
         largest_cycle = lifetimes[largest]
         other_cycles = jnp.delete(lifetimes, largest)
         return jnp.sum(other_cycles**2) - largest_cycle**2
+
 
 class SingleCycleAndConnectedComponent(TopologicalLoss):
     """This class implements a topological loss that creates a decision boundary with a 
@@ -223,6 +240,17 @@ class SingleConnectedComponent(TopologicalLoss):
         H0 = jnp.array([jnp.asarray(pers_pair) for pers_pair in pers_diag if pers_pair[2]==0])
         last_merge = jnp.max(H0[:, 1])
         return last_merge**2
+
+
+def get_topological_loss(loss_name: str, net: Callable, sampled_points: jnp.array) -> TopologicalLoss:
+    if "single_cycle_decision_boundary":
+        return SingleCycleDecisionBoundary(net, sampled_points)
+    elif "single_cycle_and_connected_component":
+        return SingleCycleAndConnectedComponent(net, sampled_points)
+    elif "single_connected_component":
+        return SingleConnectedComponent(net, sampled_points)
+    else:
+        raise ValueError("The topological loss {} is not supported.".format(loss_name))
         
 
 ##################################################################
@@ -235,10 +263,10 @@ class DecisionBoundrayOptimizer():
     """
     
     
-    #def __init__(self, net, theta, n_sampling, toploss: TopologicalLoss,
-    #             sampling_epochs=1000, update_epochs=3, sampling_lr=0.01, optimization_lr=0.01):
-    def __init__(self, net, theta, n_sampling,
-                 sampling_epochs=1000, update_epochs=3, sampling_lr=0.01, optimization_lr=0.01):
+    def __init__(self, net, theta, n_sampling, loss_name: str, sampling_epochs=1000,
+                 update_epochs=3, sampling_lr=0.01, optimization_lr=0.01, min=10., max=10.,
+                 with_logits=True
+                ):
         """_summary_
 
         Args:
@@ -254,10 +282,9 @@ class DecisionBoundrayOptimizer():
         self.theta = theta
         self.update_epochs = update_epochs
         self.optimization_lr = optimization_lr
-        self.sampler = DecisionBoundarySampler(n_points=n_sampling)
+        self.sampler = DecisionBoundarySampler(n_points=n_sampling, min=min, max=max)
         self.sampled_points = self.sampler.sample(theta, net, points=None, lr=sampling_lr, epochs=sampling_epochs)
-        self.toploss = SingleCycleDecisionBoundary(net=net, sampled_points=self.sampled_points)
-        #self.toploss = toploss(net=net, sampled_points=self.sampled_points)            # TODO: make the user able to choose topological loss
+        self.toploss = get_topological_loss(loss_name, self.net, self.sampled_points, with_logits=with_logits)
     
     def _update_sampled_points(self):
         """This function updates the sampled points so they remain on the decsion boundary
@@ -281,25 +308,25 @@ class DecisionBoundrayOptimizer():
         Returns:
             jnp.array: the parameters of the network after optimization.
         """
-        theta = jnp.array(self.theta)
+        # if isinstance(self.theta, float):
+        #   theta = jnp.array(self.theta)
+        # else :
+        params = self.theta
         optimizer = optax.adam(self.optimization_lr)
-        #params = {'theta': theta}
-        params = theta
         opt_state = optimizer.init(params)
-        #opt_state = optimizer.init(theta)
         loss = lambda x: self.toploss.differentiable_topological_loss(x)     #in later versions this should include cross entropy
 
         for epoch in range(n_epochs):
-            #grads = grad(loss)(params['theta'])
-            grads = grad(loss)(theta)
-            #print("grads : ", grads)
+            print('top epoch')
+            #grads = grad(loss)(theta)
+            grads = grad(loss)(self.theta)
+            #loss, grads = value_and_grad(loss)(self.theta)
             updates, opt_state = optimizer.update(grads, opt_state)
             params = optax.apply_updates(params, updates)
-            #theta = optax.apply_updates(theta, updates)
-            #print("theta before : ", self.theta)
             self.theta = params
-            #print("theta after : ", self.theta)
             self._update_sampled_points()
+            print(loss(self.theta))
+            print(grads)
         
         return self.theta
     
