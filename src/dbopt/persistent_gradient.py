@@ -2,6 +2,7 @@ from gph.python import ripser_parallel
 import numpy as np
 from jax import numpy as jnp
 from jax.lax import stop_gradient
+from jax import vmap, jit
 
 class PersistentGradient():
     '''This class computes the gradient of the persistence
@@ -99,5 +100,30 @@ class PersistentGradient():
         #print("array : ", type(persistence_pairs))
         return persistence_pairs
 
-        
 
+def MetricWithNormalVectors(points, normal_vectors):
+    
+    n_points = points.shape[0]
+    input_dim = points.shape[1]
+    
+    @jit
+    def dissimilarity_scalar(x:jnp.array, y:jnp.array)-> jnp.array:
+        return jnp.linalg.norm(x-y)
+    dissimilarity_matrix_fn = vmap(dissimilarity_scalar, in_axes=(1, 1))
+    
+    a = jnp.reshape(jnp.transpose(normal_vectors)[:, :,  jnp.newaxis], n_points, axis=2)
+    b = jnp.transpose(b, axes=[0, 2, 1])
+    normal_vectors_distance = dissimilarity_matrix_fn(
+        jnp.reshape(a, (input_dim, n_points**2)),
+        jnp.reshape(b, (input_dim, n_points**2))).reshape((n_points, n_points))
+    
+    
+    c = jnp.reshape(jnp.transpose(points)[:, :,  jnp.newaxis], n_points, axis=2)
+    d = jnp.transpose(c, axes=[0, 2, 1])
+    points_distance = dissimilarity_matrix_fn(
+        jnp.reshape(c, (input_dim, n_points**2)),
+        jnp.reshape(d, (input_dim, n_points**2))).reshape((n_points, n_points))
+    
+    return normal_vectors_distance + points_distance
+    
+    

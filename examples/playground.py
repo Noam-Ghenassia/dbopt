@@ -143,7 +143,7 @@ theta = jnp.array(0.)
 db_opt = DecisionBoundrayOptimizer(net, theta, 200, sampling_epochs=1000,
                                   update_epochs=25, optimization_lr=0.01,
                                   loss_name="single_cycle_and_connected_component",
-                                  with_logits=False)
+                                  with_logits=False, with_dataset=False)
 
 fig, (ax1, ax2) = plt.subplots(2, figsize=(11, 11))
 bumps.plot(ax1)
@@ -186,7 +186,7 @@ fig, (ax1, ax2) = plt.subplots(2, figsize=(11, 11))
 spiral.plot(ax1)
 net.plot_decision_boundary(params, ax1)
 
-db_opt = DecisionBoundrayOptimizer(net, params, n_sampling=800, sampling_epochs=250,
+db_opt = DecisionBoundrayOptimizer(net, params, n_sampling=800, sampling_epochs=300,
                                   loss_name="single_cycle_and_connected_component",
                                   update_epochs=25, optimization_lr=1e-3, min=-10., max=10.)
 print('done sampling')
@@ -205,11 +205,33 @@ spiral.plot(ax1)
 net.plot_decision_boundary(params, ax1)
 ax1.scatter(db_opt.get_points()[:, 0], db_opt.get_points()[:, 1], color='green')
 
-params = db_opt.optimize(n_epochs=10)
+params = db_opt.optimize(n_epochs=30, dataset=dataset)
 
 spiral.plot(ax2)
 net.plot_decision_boundary(params, ax2)
 ax2.scatter(db_opt.get_points()[:, 0], db_opt.get_points()[:, 1], color='green')
 
 
+# %%
+# a = jnp.array([[1, 2], [3, 4], [5, 6]])
+# b = jnp.repeat(jnp.transpose(a)[:, :,  jnp.newaxis], 3, axis=2)
+# c = jnp.transpose(b, axes=[0, 2, 1])
+# print(a, '\n')
+# print(b, b.shape)
+# print(c, c.shape)
+# %%
+from jax import vmap, jit
+a = jnp.array([[1, 2], [3, 4], [5, 6]])
+b = jnp.repeat(jnp.transpose(a)[:, :,  jnp.newaxis], 3, axis=2)
+c = jnp.transpose(b, axes=[0, 2, 1])
+
+print(b, b.shape, '\n')
+print(jnp.reshape(b, (2, 9)))
+print(jnp.reshape(c, (2, 9)))
+
+@jit
+def dissimilarity_scalar(x:jnp.array, y:jnp.array)-> jnp.array:
+    return jnp.linalg.norm(x-y)
+dissimilarity_matrix_fn = vmap(dissimilarity_scalar, in_axes=(1, 1))
+dissimilarity_matrix_fn(jnp.reshape(b, (2, 9)), jnp.reshape(c, (2, 9))).reshape((3,3))
 # %%

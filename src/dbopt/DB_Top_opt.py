@@ -4,7 +4,7 @@ from typing import Union, Dict, Callable
 from functools import partial
 from haiku import value_and_grad
 
-from jax import numpy as jnp
+from jax import numpy as jnp, random, nn
 from jax import jit, jacfwd, grad
 from jaxopt.implicit_diff import custom_root
 import numpy as np
@@ -192,8 +192,8 @@ class SingleCycleDecisionBoundary(TopologicalLoss):
     decision boundary.
     """
     
-    def __init__(self, net, sampled_points):
-        super().__init__(net, sampled_points)
+    def __init__(self, net, sampled_points, with_logits):
+        super().__init__(net, sampled_points, with_logits)
     
     def _toploss(self, parametrized_sampling):
         
@@ -212,8 +212,8 @@ class SingleCycleAndConnectedComponent(TopologicalLoss):
     single cycle and a single connected component.
     """
     
-    def __init__(self, net, sampled_points):
-        super().__init__(net, sampled_points)
+    def __init__(self, net, sampled_points, with_logits):
+        super().__init__(net, sampled_points, with_logits)
     
     def _toploss(self, parametrized_sampling):
         pers_diag = self.persistent_gradient._computing_persistence_with_gph(parametrized_sampling)
@@ -232,23 +232,41 @@ class SingleConnectedComponent(TopologicalLoss):
     single connected component.
     """
     
-    def __init__(self, net, sampled_points):
-        super().__init__(net, sampled_points)
+    def __init__(self, net, sampled_points, with_logits):
+        super().__init__(net, sampled_points, with_logits)
     
     def _toploss(self, parametrized_sampling):
         pers_diag = self.persistent_gradient._computing_persistence_with_gph(parametrized_sampling)
         H0 = jnp.array([jnp.asarray(pers_pair) for pers_pair in pers_diag if pers_pair[2]==0])
         last_merge = jnp.max(H0[:, 1])
         return last_merge**2
+    
+class SingleConnectedComponentAndNoCycles(TopologicalLoss):
+    """This class implements a topological loss that creates a decision boundary with a
+    single connected component and no cycles.
+    """
+    
+    def __init__(self, net, sampled_points, with_logits):
+        super().__init__(net, sampled_points, with_logits)
+    
+    def _toploss(self, parametrized_sampling):
+        pers_diag = self.persistent_gradient._computing_persistence_with_gph(parametrized_sampling)
+        H0 = jnp.array([jnp.asarray(pers_pair) for pers_pair in pers_diag if pers_pair[2]==0])
+        H1 = jnp.array([jnp.asarray(pers_pair) for pers_pair in pers_diag if pers_pair[2]==1])
+        cycles_lifetimes = H1[:, 1] - H1[:, 0]
+        last_merge = jnp.max(H0[:, 1])
+        return jnp.sum(cycles_lifetimes**2) + last_merge**2
 
 
-def get_topological_loss(loss_name: str, net: Callable, sampled_points: jnp.array) -> TopologicalLoss:
+def get_topological_loss(loss_name: str, net: Callable, sampled_points: jnp.array, with_logits) -> TopologicalLoss:
     if "single_cycle_decision_boundary":
-        return SingleCycleDecisionBoundary(net, sampled_points)
+        return SingleCycleDecisionBoundary(net, sampled_points, with_logits)
     elif "single_cycle_and_connected_component":
-        return SingleCycleAndConnectedComponent(net, sampled_points)
+        return SingleCycleAndConnectedComponent(net, sampled_points, with_logits)
     elif "single_connected_component":
-        return SingleConnectedComponent(net, sampled_points)
+        return SingleConnectedComponent(net, sampled_points, with_logits)
+    elif "single_connected_component_and_no_cycles":
+        return SingleConnectedComponentAndNoCycles(net, sampled_points, with_logits)
     else:
         raise ValueError("The topological loss {} is not supported.".format(loss_name))
         
@@ -265,8 +283,7 @@ class DecisionBoundrayOptimizer():
     
     def __init__(self, net, theta, n_sampling, loss_name: str, sampling_epochs=1000,
                  update_epochs=3, sampling_lr=0.01, optimization_lr=0.01, min=10., max=10.,
-                 with_logits=True
-                ):
+                 with_logits=True, with_dataset=True):
         """_summary_
 
         Args:
@@ -280,6 +297,7 @@ class DecisionBoundrayOptimizer():
         """
         self.net = net
         self.theta = theta
+        self.with_dataset = with_dataset
         self.update_epochs = update_epochs
         self.optimization_lr = optimization_lr
         self.sampler = DecisionBoundarySampler(n_points=n_sampling, min=min, max=max)
@@ -294,9 +312,51 @@ class DecisionBoundrayOptimizer():
                                          epochs=self.update_epochs)
         self.sampled_points = new_points
         self.toploss.update_sampled_points(new_points)
+    
+    # def make_batches(self, key, dataset, batch_size=64):                    #TODO: make the training compatible with batches
+    #     """This function allows to partition the dataset into batches with
+    #     specified size. 
+
+    #     Args:
+    #         dataset (jnp.array): The dataset that is partitionned.
+    #         batch_size (int, optional): The size of the returned batches. Defaults to 64.
+
+    #     Returns:
+    #         tuple: The batches.
+    #     """
+    #     n_points = dataset.shape[0]
+    #     remainder = n_points % batch_size
+    #     num_full_batches = (n_points - remainder)/batch_size
+    #     permuted_dataset = random.permutation(key, dataset)
+    #     batches_list = []
+    #     for batch in range(int(num_full_batches)):
+    #         batches_list.append(permuted_dataset[batch:batch+batch_size, :])
+    #     batches_list.append(permuted_dataset[-remainder-1:-1, :])
+    #     return batches_list
+    
+    def make_loss_fn(self, data, labels):
+        """This function allows to create a categorical cross-entropy
+        loss function that is evaluated over a given set of data points
+        and corresponding labels.
+
+        Args:
+            data (jnp.array): The datapoints.
+            labels (jnp.array): The corresponding labels.
+            
+        Returns:
+            Callable: the cross-entropy loss function.
+        """
+        
+        def loss_fn(params):
+            preds = self.net.apply(params, data)
+            one_hot_gt_labels = nn.one_hot(labels, num_classes=2)
+            loss = -jnp.mean(jnp.sum(one_hot_gt_labels * jnp.log(preds), axis=-1))
+            return loss
+        
+        return loss_fn
 
 
-    def optimize(self, n_epochs):
+    def optimize(self, n_epochs, dataset):
         """This function allows to optimize the decision boundary. It uses the Adam
         optimizer to minimize the value of the topological loss. After each epoch,
         it updates the sampling of the decision boundary by calling the sample method
@@ -308,19 +368,23 @@ class DecisionBoundrayOptimizer():
         Returns:
             jnp.array: the parameters of the network after optimization.
         """
-        # if isinstance(self.theta, float):
-        #   theta = jnp.array(self.theta)
-        # else :
+        
         params = self.theta
         optimizer = optax.adam(self.optimization_lr)
         opt_state = optimizer.init(params)
-        loss = lambda x: self.toploss.differentiable_topological_loss(x)     #in later versions this should include cross entropy
+        
+        data = dataset[:, 1:]
+        labels = jnp.squeeze(dataset[:, :1], axis=1)
+        
+        if self.with_dataset:
+            CE_loss = self.make_loss_fn(data, labels)
+            loss = lambda x: self.toploss.differentiable_topological_loss(x)+100*CE_loss(x)
+        else:
+            loss = lambda x: self.toploss.differentiable_topological_loss(x)
 
         for epoch in range(n_epochs):
-            print('top epoch')
-            #grads = grad(loss)(theta)
+
             grads = grad(loss)(self.theta)
-            #loss, grads = value_and_grad(loss)(self.theta)
             updates, opt_state = optimizer.update(grads, opt_state)
             params = optax.apply_updates(params, updates)
             self.theta = params
