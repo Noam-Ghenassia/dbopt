@@ -50,7 +50,8 @@ class PersistentGradient():
 
     
     
-    def _computing_persistence_with_gph(self, X):
+    def _computing_persistence_with_gph(self, X, N):
+    #def _computing_persistence_with_gph(self, X):
         """This method accepts the pointcloud and returns the
         persistence diagram in the following form
         $Pers:Filt_K \subset \mathbb R^{|K|} \to (\mathbb R^2)^p
@@ -68,10 +69,14 @@ class PersistentGradient():
                 first 2 dimensions) where the last dimension 
                 contains the homology dimension
         """
-
-        #x = metric_with_normal_vectors(X, N)
-        
-        output = ripser_parallel(np.asarray(stop_gradient(X)),
+        # print('points in gph : ', X)
+        # print('normal vectors in gph : ', N)
+        distances = metric_with_normal_vectors(X, N)
+        #print('points in gph : ', X)
+        #print('normal vectors in gph : ', N)
+        #print('distances : ', np.asarray(stop_gradient(distances))[:5, :5])
+        output = ripser_parallel(np.asarray(stop_gradient(distances)),
+        #output = ripser_parallel(np.asarray(stop_gradient(X)),
                                  maxdim=max(self.homology_dimensions),
                                  thresh=self.max_edge_length,
                                  coeff=2,
@@ -111,18 +116,26 @@ def metric_with_normal_vectors(points, normal_vectors):
         return jnp.linalg.norm(x-y)
     dissimilarity_matrix_fn = vmap(dissimilarity_scalar, in_axes=(1, 1))
     
-    a = jnp.reshape(jnp.transpose(normal_vectors)[:, :,  jnp.newaxis], n_points, axis=2)
-    b = jnp.transpose(b, axes=[0, 2, 1])
+    a = jnp.repeat(jnp.transpose(normal_vectors)[:, :,  jnp.newaxis], n_points, axis=2)
+    b = jnp.transpose(a, axes=[0, 2, 1])
     normal_vectors_distance = dissimilarity_matrix_fn(
         jnp.reshape(a, (input_dim, n_points**2)),
         jnp.reshape(b, (input_dim, n_points**2))).reshape((n_points, n_points))
     
-    c = jnp.reshape(jnp.transpose(points)[:, :,  jnp.newaxis], n_points, axis=2)
+    c = jnp.repeat(jnp.transpose(points)[:, :,  jnp.newaxis], n_points, axis=2)
     d = jnp.transpose(c, axes=[0, 2, 1])
     points_distance = dissimilarity_matrix_fn(
         jnp.reshape(c, (input_dim, n_points**2)),
         jnp.reshape(d, (input_dim, n_points**2))).reshape((n_points, n_points))
     
-    return normal_vectors_distance + points_distance
+    return 100*normal_vectors_distance + points_distance
+
+def plot_persistence_diagram(pers_diag, ax):
     
+    H0 = jnp.array([jnp.asarray(pers_pair) for pers_pair in pers_diag if pers_pair[2]==0])
+    H1 = jnp.array([jnp.asarray(pers_pair) for pers_pair in pers_diag if pers_pair[2]==1])
+    diag = np.linspace(0, 8, 100)
+    ax.scatter(H0[:, 0], H0[:, 1])
+    ax.scatter(H1[:, 0], H1[:, 1])
+    ax.plot(diag, diag)
     
