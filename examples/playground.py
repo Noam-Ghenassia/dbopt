@@ -135,26 +135,26 @@ from dbopt.persistent_gradient import PersistentGradient  # type: ignore
 #print(sc.topological_loss_with_gradient(theta2))
 
 # %%
-bumps = Bumps()
-#net = lambda theta, x: bumps.level(x, theta)
-net = bumps
-theta = jnp.array(0.)
+# bumps = Bumps()
+# #net = lambda theta, x: bumps.level(x, theta)
+# net = bumps
+# theta = jnp.array(0.)
 
-db_opt = DecisionBoundrayOptimizer(net, theta, 200, sampling_epochs=1000,
-                                  update_epochs=25, optimization_lr=0.01,
-                                  loss_name="single_cycle_and_connected_component",
-                                  with_logits=False, with_dataset=False)
+# db_opt = DecisionBoundrayOptimizer(net, theta, 200, sampling_epochs=1000,
+#                                   update_epochs=25, optimization_lr=0.01,
+#                                   loss_name="single_cycle_and_connected_component",
+#                                   with_logits=False, with_dataset=False)
 
-fig, (ax1, ax2) = plt.subplots(2, figsize=(11, 11))
-bumps.plot(ax1)
-pts = db_opt.get_points()
-ax1.scatter(pts[:, 0], pts[:, 1], color='red')
+# fig, (ax1, ax2) = plt.subplots(2, figsize=(11, 11))
+# bumps.plot(ax1)
+# pts = db_opt.get_points()
+# ax1.scatter(pts[:, 0], pts[:, 1], color='red')
 
-theta = db_opt.optimize(n_epochs=15)
+# theta = db_opt.optimize(n_epochs=15)
 
-bumps.plot(ax2, theta)
-pts = db_opt.get_points()
-ax2.scatter(pts[:, 0], pts[:, 1], color='red')
+# bumps.plot(ax2, theta)
+# pts = db_opt.get_points()
+# ax2.scatter(pts[:, 0], pts[:, 1], color='red')
 
 #########################################################################
 ######################## DONE WITH THE BUMPS ############################
@@ -163,7 +163,7 @@ ax2.scatter(pts[:, 0], pts[:, 1], color='red')
 
 
 # %%
-seed = 23
+seed = 24
 key = random.PRNGKey(seed)
 
 key, ds_key = random.split(key)
@@ -187,8 +187,8 @@ spiral.plot(ax1)
 net.plot_decision_boundary(params, ax1)
 
 db_opt = DecisionBoundrayOptimizer(net, params, n_sampling=800, sampling_epochs=300,
-                                  loss_name="single_cycle_and_connected_component",
-                                  update_epochs=25, optimization_lr=1e-3, min=-10., max=10.)
+                                  loss_name="single_connected_component_and_no_cycles",
+                                  update_epochs=10, optimization_lr=1e-3, min=-10., max=10.)
 print('done sampling')
 
 spiral.plot(ax2)
@@ -211,6 +211,8 @@ spiral.plot(ax2)
 net.plot_decision_boundary(params, ax2)
 ax2.scatter(db_opt.get_points()[:, 0], db_opt.get_points()[:, 1], color='green')
 
+#%%
+print(db_opt.get_points().shape)
 
 # %%
 # a = jnp.array([[1, 2], [3, 4], [5, 6]])
@@ -225,9 +227,13 @@ a = jnp.array([[1, 2], [3, 4], [5, 6]])
 b = jnp.repeat(jnp.transpose(a)[:, :,  jnp.newaxis], 3, axis=2)
 c = jnp.transpose(b, axes=[0, 2, 1])
 
-print(b, b.shape, '\n')
+print('a', a)
+print('b', b, b.shape, '\n')
 print(jnp.reshape(b, (2, 9)))
 print(jnp.reshape(c, (2, 9)))
+
+# @jit          #TODO : timeit
+# jnp.linalg.norm(a[:, np.newaxis, :] - a[np.newaxis, :, :], axis=-1)
 
 @jit
 def dissimilarity_scalar(x:jnp.array, y:jnp.array)-> jnp.array:

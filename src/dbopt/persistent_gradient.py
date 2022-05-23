@@ -69,6 +69,8 @@ class PersistentGradient():
                 contains the homology dimension
         """
 
+        #x = metric_with_normal_vectors(X, N)
+        
         output = ripser_parallel(np.asarray(stop_gradient(X)),
                                  maxdim=max(self.homology_dimensions),
                                  thresh=self.max_edge_length,
@@ -95,13 +97,11 @@ class PersistentGradient():
                 persistence_pairs += [(jnp.linalg.norm(X[x[1]]-X[x[0]]), 
                                       jnp.linalg.norm(X[x[3]]-X[x[2]]), 
                                       dim) for x in output["gens"][1][dim-1]]
-        #print("list : ", len(persistence_pairs), len(persistence_pairs[0]))
-        #persistence_pairs = jnp.array([jnp.array(pair) for pair in persistence_pairs])
-        #print("array : ", type(persistence_pairs))
+
         return persistence_pairs
 
-
-def MetricWithNormalVectors(points, normal_vectors):
+@jit
+def metric_with_normal_vectors(points, normal_vectors):
     
     n_points = points.shape[0]
     input_dim = points.shape[1]
@@ -116,7 +116,6 @@ def MetricWithNormalVectors(points, normal_vectors):
     normal_vectors_distance = dissimilarity_matrix_fn(
         jnp.reshape(a, (input_dim, n_points**2)),
         jnp.reshape(b, (input_dim, n_points**2))).reshape((n_points, n_points))
-    
     
     c = jnp.reshape(jnp.transpose(points)[:, :,  jnp.newaxis], n_points, axis=2)
     d = jnp.transpose(c, axes=[0, 2, 1])

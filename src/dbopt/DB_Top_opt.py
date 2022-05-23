@@ -297,7 +297,7 @@ class DecisionBoundrayOptimizer():
         """
         self.net = net
         self.theta = theta
-        self.with_dataset = with_dataset
+        self.use_cross_entropy_loss = with_dataset
         self.update_epochs = update_epochs
         self.optimization_lr = optimization_lr
         self.sampler = DecisionBoundarySampler(n_points=n_sampling, min=min, max=max)
@@ -309,7 +309,7 @@ class DecisionBoundrayOptimizer():
         after it was updated. It should be called after each optimization step.
         """
         new_points = self.sampler.sample(self.theta, self.net, self.sampled_points,
-                                         epochs=self.update_epochs)
+                                         epochs=self.update_epochs, delete_outliers=False)
         self.sampled_points = new_points
         self.toploss.update_sampled_points(new_points)
     
@@ -376,21 +376,19 @@ class DecisionBoundrayOptimizer():
         data = dataset[:, 1:]
         labels = jnp.squeeze(dataset[:, :1], axis=1)
         
-        if self.with_dataset:
+        if self.use_cross_entropy_loss:
             CE_loss = self.make_loss_fn(data, labels)
             loss = lambda x: self.toploss.differentiable_topological_loss(x)+100*CE_loss(x)
         else:
             loss = lambda x: self.toploss.differentiable_topological_loss(x)
 
         for epoch in range(n_epochs):
-
+            print('epoch : ', epoch)
             grads = grad(loss)(self.theta)
             updates, opt_state = optimizer.update(grads, opt_state)
             params = optax.apply_updates(params, updates)
             self.theta = params
             self._update_sampled_points()
-            print(loss(self.theta))
-            print(grads)
         
         return self.theta
     
