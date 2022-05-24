@@ -298,7 +298,7 @@ class DecisionBoundrayOptimizer():
     
     
     def __init__(self, net, theta, n_sampling, loss_name: str, sampling_epochs=1000,
-                 update_epochs=3, sampling_lr=0.01, optimization_lr=0.01, min=10., max=10.,
+                 update_epochs=3, sampling_lr=0.01, optimization_lr=0.01, min_x=-10., max_x=10., min_y=-10., max_y=10.,
                  with_logits=True, with_dataset=True):
         """_summary_
 
@@ -316,7 +316,7 @@ class DecisionBoundrayOptimizer():
         self.use_cross_entropy_loss = with_dataset
         self.update_epochs = update_epochs
         self.optimization_lr = optimization_lr
-        self.sampler = DecisionBoundarySampler(n_points=n_sampling, min=min, max=max)
+        self.sampler = DecisionBoundarySampler(n_points=n_sampling, min_x=min_x, max_x=max_x, min_y=min_y, max_y=max_y)
         self.sampled_points = self.sampler.sample(theta, net, points=None, lr=sampling_lr, epochs=sampling_epochs)
         self.toploss = get_topological_loss(loss_name, self.net, self.sampled_points, with_logits=with_logits)
     

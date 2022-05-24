@@ -11,12 +11,14 @@ class DecisionBoundarySampler():
     """
 
     def __init__(self, n_points=1000,
-                 input_dim=2, min=-2., max=2.):
+                 input_dim=2, min_x=-2., max_x=2., min_y=-2., max_y=2.):
         
         self.key = random.PRNGKey(0)
         self.n_points = n_points
-        self.min_x = min
-        self.max_x = max
+        self.min_x = min_x
+        self.max_x = max_x
+        self.min_y = min_y
+        self.max_y = max_y
         self.input_dim = input_dim
         self.points = self._random_sampling()
     
@@ -27,8 +29,12 @@ class DecisionBoundarySampler():
             jax.numpy.array: the points sampled from the latent space
         """
         
-        shape = (self.n_points, self.input_dim)
-        return random.uniform(self.key, shape=shape, minval=self.min_x, maxval=self.max_x)
+        # shape = (self.n_points, self.input_dim)
+        # return random.uniform(self.key, shape=shape, minval=self.min_x, maxval=self.max_x)
+        self.key, x_key = random.split(self.key)
+        x = jnp.expand_dims(random.uniform(x_key, minval=self.min_x, maxval=self.max_x, shape=(self.n_points,)), axis=1)
+        y = jnp.expand_dims(random.uniform(self.key, minval=self.min_y, maxval=self.max_y, shape=(self.n_points,)), axis=1)
+        return jnp.concatenate((x, y), axis=1)
 
     def _loss(self, points, theta, net,  squaredDiff=True, return_losses=False):
         """A loss function that penalises points that lie far from the DB.

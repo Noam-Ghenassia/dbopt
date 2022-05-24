@@ -184,15 +184,15 @@ print('done fitting the network')
 #%%
 fig, (ax1, ax2) = plt.subplots(2, figsize=(11, 11))
 spiral.plot(ax1)
-net.plot_decision_boundary(params, ax1, x_min=-15., x_max=15., y_min=-13., y_max=11.)
+net.plot_decision_boundary(params, ax1, x_min=-15., x_max=15., y_min=-10., y_max=15.)
 
-db_opt = DecisionBoundrayOptimizer(net, params, n_sampling=1100, sampling_epochs=400,
-                                  loss_name="single_small_cycle",
-                                  update_epochs=10, optimization_lr=1e-3, min=-15., max=15.)
+db_opt = DecisionBoundrayOptimizer(net, params, n_sampling=1600, sampling_epochs=500,
+                                  loss_name="single_connected_component",
+                                  update_epochs=10, optimization_lr=1e-2, min_x=-14., max_x=10., min_y=-7., max_y=12.5)
 print('done sampling')
 
 spiral.plot(ax2)
-net.plot_decision_boundary(params, ax2, x_min=-15., x_max=15., y_min=-15., y_max=15.)
+net.plot_decision_boundary(params, ax2, x_min=-15., x_max=15., y_min=-10., y_max=15.)
 ax2.scatter(db_opt.get_points()[:, 0], db_opt.get_points()[:, 1], color='green')
 
 print('points shape : ', db_opt.get_points().shape)
@@ -204,7 +204,7 @@ fig, ((ax1, ax2, ax5), (ax3, ax4, ax6)) = plt.subplots(2, 3, figsize=(20, 15))
 #fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(20, 15))
 
 spiral.plot(ax1)
-net.plot_decision_boundary(params, ax1, x_min=-15., x_max=15., y_min=-15., y_max=15.)
+net.plot_decision_boundary(params, ax1, x_min=-15., x_max=15., y_min=-10., y_max=15.)
 ax1.scatter(db_opt.get_points()[:, 0], db_opt.get_points()[:, 1], color='green')
 
 pg = PersistentGradient()
@@ -217,10 +217,10 @@ diag2 = pg._computing_persistence_with_gph(points, normal_vectors)
 plot_persistence_diagram(diag1, ax2)
 plot_persistence_diagram(diag2, ax5)
 
-params = db_opt.optimize(n_epochs=10, dataset=dataset)
+params = db_opt.optimize(n_epochs=5, dataset=dataset)
 
 spiral.plot(ax3)
-net.plot_decision_boundary(params, ax3, x_min=-15., x_max=15., y_min=-15., y_max=15.)
+net.plot_decision_boundary(params, ax3, x_min=-15., x_max=15., y_min=-10., y_max=15.)
 ax3.scatter(db_opt.get_points()[:, 0], db_opt.get_points()[:, 1], color='green')
 
 points = db_opt.get_points()
@@ -232,8 +232,9 @@ plot_persistence_diagram(diag3, ax4)
 plot_persistence_diagram(diag4, ax6)
 
 #%%
-from dbopt.persistent_gradient import metric_with_normal_vectors
-print(metric_with_normal_vectors(points, normal_vectors)[:5, :5])
+fig, ax = plt.subplots(1, 1)
+net.plot_decision_boundary(params, ax, x_min=-15., x_max=15., y_min=-10., y_max=15.)
+spiral.plot(ax)
 
 # %%
 # a = jnp.array([[1, 2], [3, 4], [5, 6]])
@@ -261,4 +262,11 @@ def dissimilarity_scalar(x:jnp.array, y:jnp.array)-> jnp.array:
     return jnp.linalg.norm(x-y)
 dissimilarity_matrix_fn = vmap(dissimilarity_scalar, in_axes=(1, 1))
 dissimilarity_matrix_fn(jnp.reshape(b, (2, 9)), jnp.reshape(c, (2, 9))).reshape((3,3))
+# %%
+pg = PersistentGradient()
+X = jnp.array([[1., 1.], [1., -1.], [-1., 1.], [-1., -1.]])
+#N = jnp.zeros_like(X)
+N = 1*jnp.array([[1., 0.], [1., 0.], [-1., 0.], [-1., 0.]])
+diag = pg._computing_persistence_with_gph(X, N)
+print('diag : ', diag)
 # %%

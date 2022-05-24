@@ -69,14 +69,10 @@ class PersistentGradient():
                 first 2 dimensions) where the last dimension 
                 contains the homology dimension
         """
-        # print('points in gph : ', X)
-        # print('normal vectors in gph : ', N)
-        distances = metric_with_normal_vectors(X, N)
-        #print('points in gph : ', X)
-        #print('normal vectors in gph : ', N)
-        #print('distances : ', np.asarray(stop_gradient(distances))[:5, :5])
-        output = ripser_parallel(np.asarray(stop_gradient(distances)),
-        #output = ripser_parallel(np.asarray(stop_gradient(X)),
+        #distances = metric_with_normal_vectors(X, N)
+        embedding = jnp.concatenate((X, 3*N), axis=1)
+        #output = ripser_parallel(np.asarray(stop_gradient(distances)),
+        output = ripser_parallel(np.asarray(stop_gradient(embedding)),
                                  maxdim=max(self.homology_dimensions),
                                  thresh=self.max_edge_length,
                                  coeff=2,
@@ -84,7 +80,6 @@ class PersistentGradient():
                                  collapse_edges=self.collapse_edges,
                                  n_threads=-1,
                                  return_generators=True)
-
         persistence_pairs = []
         for dim in self.homology_dimensions:
             if dim == 0:
@@ -93,14 +88,14 @@ class PersistentGradient():
                 # euclidean distance between them is the filtration value at which
                 # this CC dies.
                 
-                persistence_pairs += [(0, jnp.linalg.norm(X[x[1]]-X[x[2]]),
+                persistence_pairs += [(0, jnp.linalg.norm(embedding[x[1]]-embedding[x[2]]),
                                       0) for x in output["gens"][dim]]
             else:
                 # x[0] and x[1] are the indices of the extremities of the edge that,
                 # when added, creates a new features in the homology of dimension dim.
                 # Similarly, x[2] and x[3] are the indices of the edge that kills this feature.
-                persistence_pairs += [(jnp.linalg.norm(X[x[1]]-X[x[0]]), 
-                                      jnp.linalg.norm(X[x[3]]-X[x[2]]), 
+                persistence_pairs += [(jnp.linalg.norm(embedding[x[1]]-embedding[x[0]]), 
+                                      jnp.linalg.norm(embedding[x[3]]-embedding[x[2]]), 
                                       dim) for x in output["gens"][1][dim-1]]
 
         return persistence_pairs
@@ -128,7 +123,8 @@ def metric_with_normal_vectors(points, normal_vectors):
         jnp.reshape(c, (input_dim, n_points**2)),
         jnp.reshape(d, (input_dim, n_points**2))).reshape((n_points, n_points))
     
-    return 100*normal_vectors_distance + points_distance
+    #return 100*normal_vectors_distance + points_distance
+    return normal_vectors_distance + points_distance
 
 def plot_persistence_diagram(pers_diag, ax):
     
