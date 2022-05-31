@@ -17,7 +17,7 @@ from dbopt.FCNN import FCNN
 from dbopt.DB_Top_opt import DecisionBoundrayOptimizer
 
 # %%
-seed = 23
+seed = 24
 key = random.PRNGKey(seed)
 
 
@@ -49,10 +49,10 @@ ax2.scatter(pts[:, 0], pts[:, 1], color='red')
 # %%
 # testing the creation of the spiral dataset
 key, ds_key = random.split(key)
-spiral = Spiral(55, ds_key)
+spiral = Spiral(75, ds_key)
 fig, ax = plt.subplots()
 spiral.plot(ax)
-
+plt.savefig('line_plot.pdf')  
 
 #%%
 # fitting the sprial dataset with the neural network of the FCNN class

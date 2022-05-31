@@ -130,8 +130,8 @@ def plot_persistence_diagram(pers_diag, ax):
     
     H0 = jnp.array([jnp.asarray(pers_pair) for pers_pair in pers_diag if pers_pair[2]==0])
     H1 = jnp.array([jnp.asarray(pers_pair) for pers_pair in pers_diag if pers_pair[2]==1])
-    diag = np.linspace(0, 8, 100)
-    ax.scatter(H0[:, 0], H0[:, 1])
-    ax.scatter(H1[:, 0], H1[:, 1])
+    diag = np.linspace(0, 11, 100)
+    ax.scatter(H0[:, 0], H0[:, 1], label='H0')
+    ax.scatter(H1[:, 0], H1[:, 1], label='H1')
     ax.plot(diag, diag)
     
