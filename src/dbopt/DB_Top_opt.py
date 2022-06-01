@@ -67,7 +67,7 @@ class DecisionBoundrayGradient():
         if self.with_logits:
             normal_vectors = grad(lambda x : self._difference_of_the_logits(x, theta).sum())(self.sampled_points)
         else:
-            normal_vectors = grad(lambda x : self.net(x, theta).sum())(self.sampled_points)
+            normal_vectors = grad(lambda x : self.net.apply(theta, x).sum())(self.sampled_points)
         norms = jnp.linalg.norm(normal_vectors, axis=1).reshape(-1, 1)
         return normal_vectors / norms
     
@@ -372,7 +372,7 @@ class DecisionBoundrayOptimizer():
         return loss_fn
 
 
-    def optimize(self, n_epochs, dataset):
+    def optimize(self, n_epochs, dataset=None):
         """This function allows to optimize the decision boundary. It uses the Adam
         optimizer to minimize the value of the topological loss. After each epoch,
         it updates the sampling of the decision boundary by calling the sample method
@@ -389,10 +389,9 @@ class DecisionBoundrayOptimizer():
         optimizer = optax.adam(self.optimization_lr)
         opt_state = optimizer.init(params)
         
-        data = dataset[:, 1:]
-        labels = jnp.squeeze(dataset[:, :1], axis=1)
-        
         if self.use_cross_entropy_loss:
+            data = dataset[:, 1:]
+            labels = jnp.squeeze(dataset[:, :1], axis=1)
             CE_loss = self.make_loss_fn(data, labels)
             loss = lambda x: self.toploss.differentiable_topological_loss(x)+2000*CE_loss(x)
         else:

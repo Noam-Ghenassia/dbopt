@@ -133,26 +133,29 @@ from dbopt.persistent_gradient import plot_persistence_diagram
 #print(sc.topological_loss_with_gradient(theta2))
 
 # %%
-# bumps = Bumps()
-# #net = lambda theta, x: bumps.level(x, theta)
-# net = bumps
-# theta = jnp.array(0.)
+bumps = Bumps()
+net = bumps
+theta = jnp.array(0.)
 
-# db_opt = DecisionBoundrayOptimizer(net, theta, 200, sampling_epochs=1000,
-#                                   update_epochs=25, optimization_lr=0.01,
-#                                   loss_name="single_cycle_and_connected_component",
-#                                   with_logits=False, with_dataset=False)
+db_opt = DecisionBoundrayOptimizer(net, theta, 200, sampling_epochs=1000,
+                                  update_epochs=15, optimization_lr=0.03,
+                                  loss_name="single_cycle_and_connected_component",
+                                  with_logits=False, with_dataset=False,
+                                  min_x=-1.5, max_x=1.5, min_y=-0.6, max_y=0.6)
 
-# fig, (ax1, ax2) = plt.subplots(2, figsize=(11, 11))
-# bumps.plot(ax1)
-# pts = db_opt.get_points()
-# ax1.scatter(pts[:, 0], pts[:, 1], color='red')
+print('n points : ', db_opt.get_points().shape[0])
 
-# theta = db_opt.optimize(n_epochs=15)
+fig, (ax1, ax2) = plt.subplots(2, figsize=(11, 11))
+bumps.plot(ax1)
+pts = db_opt.get_points()
+ax1.scatter(pts[:, 0], pts[:, 1], color='red')
 
-# bumps.plot(ax2, theta)
-# pts = db_opt.get_points()
-# ax2.scatter(pts[:, 0], pts[:, 1], color='red')
+theta = db_opt.optimize(n_epochs=13)
+
+bumps.plot(ax2, theta)
+pts = db_opt.get_points()
+ax2.scatter(pts[:, 0], pts[:, 1], color='red')
+plt.savefig('bumps_optimization.pdf')
 
 #########################################################################
 ######################## DONE WITH THE BUMPS ############################
@@ -264,15 +267,15 @@ from dbopt.persistent_gradient import plot_persistence_diagram
 
 # %%
 #initializing dataset
-seed = 24
+seed = 23
 key = random.PRNGKey(seed)
 
 key, ds_key = random.split(key)
 spiral = Spiral(30, ds_key)
 dataset = spiral.get_dataset()
 
-#fig, ax = plt.subplots()
-#spiral.plot(ax)
+fig, ax = plt.subplots()
+spiral.plot(ax)
 #plt.savefig('spiral_dataset.pdf')
 
 #%%
@@ -329,7 +332,7 @@ plot_persistence_diagram(diag2, ax3)
 
 #%%
 #running db_opt
-params = db_opt.optimize(n_epochs=8, dataset=dataset)
+params = db_opt.optimize(n_epochs=1, dataset=dataset)
 
 fig, ax = plt.subplots(1, figsize=(11, 11))
 spiral.plot(ax)
