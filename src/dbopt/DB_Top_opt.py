@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Union, Dict, Callable
 from functools import partial
-from haiku import value_and_grad
 
+from haiku import value_and_grad
 from jax import numpy as jnp, random, nn
 from jax import jit, jacfwd, grad
 from jaxopt.implicit_diff import custom_root
