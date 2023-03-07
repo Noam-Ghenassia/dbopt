@@ -1,19 +1,16 @@
 from abc import ABC, abstractmethod
-#from enum import Enum
 from typing import Union, Dict, Callable
-#from functools import partial
 
-from haiku import value_and_grad
-from jax import numpy as jnp, random, nn
-from jax import jit, jacfwd, grad
+from jax import numpy as jnp
+from jax import nn
+from jax import grad
+#from jax import random
 from jaxopt.implicit_diff import custom_root
-import numpy as np
 import optax
 
 
-from dbopt.DB_sampler import DecisionBoundarySampler
-from dbopt.persistent_gradient import PersistentGradient
-
+from src.dbopt.DB_sampler import DecisionBoundarySampler
+from src.dbopt.persistent_gradient import PersistentGradient
 
 class DecisionBoundrayGradient():
     """This class allows to compute the gradient of the points with respect to the
@@ -48,7 +45,7 @@ class DecisionBoundrayGradient():
             theta (jax.FrozenDict): The parameters of the network.
 
         Returns:
-            _type_: _description_
+            jnp.array: The difference of the logits.
         """
         logits = self.net.apply(theta, x)
         return logits[:, 1] - logits[:, 0]
@@ -115,7 +112,7 @@ class DecisionBoundrayGradient():
     
     def _inner_problem(self, t_init, theta):
         """This function is the inner optimization problem. It returns the
-        optimal t vectors that satisfies the optimality condition (namely,
+        optimal t vector that satisfies the optimality condition (namely,
         the 0 vector).
 
         Args:
@@ -142,9 +139,9 @@ class DecisionBoundrayGradient():
 
 
 class TopologicalLoss(ABC):
-    """This is the abstract from which the different topological losses are inherited.
+    """This is the abstract class from which the different topological losses are inherited.
     """
-    
+
     def __init__(self, net, sampled_points, with_logits=True):
         """
         Args:
@@ -300,9 +297,7 @@ class DecisionBoundrayOptimizer():
     def __init__(self, net, theta, n_sampling, loss_name: str, sampling_epochs=1000,
                  update_epochs=3, sampling_lr=0.01, optimization_lr=0.01, min_x=-10., max_x=10., min_y=-10., max_y=10.,
                  with_logits=True, with_dataset=True):
-        """_summary_
-
-        Args:
+        """Args:
             net (Callable): The network that is being optimized.
             theta (jnp.array): The parameters of the network.
             n_sampling (int): The number of points to sample the decision boundary.
@@ -322,7 +317,7 @@ class DecisionBoundrayOptimizer():
     
     def _update_sampled_points(self):
         """This function updates the sampled points so they remain on the decsion boundary
-        after it was updated. It should be called after each optimization step.
+        after it was updated. It is called after each optimization step.
         """
         new_points = self.sampler.sample(self.theta, self.net, self.sampled_points,
                                          epochs=self.update_epochs, delete_outliers=False)

@@ -13,14 +13,14 @@ import jax.random as random
 from jax import grad
 import matplotlib.pyplot as plt
 
-from dbopt.DB_sampler import DecisionBoundarySampler
-from dbopt.Bumps import Bumps
-from dbopt.Datasets import Spiral
-from dbopt.FCNN import FCNN
-from dbopt.DB_Top_opt import DecisionBoundrayGradient
-from dbopt.DB_Top_opt import DecisionBoundrayOptimizer
-from dbopt.persistent_gradient import PersistentGradient  # type: ignore
-from dbopt.persistent_gradient import plot_persistence_diagram
+from src.dbopt.DB_sampler import DecisionBoundarySampler
+from src.dbopt.Bumps import Bumps
+from src.dbopt.Datasets import Spiral
+from src.dbopt.FCNN import FCNN
+from src.dbopt.DB_Top_opt import DecisionBoundrayGradient
+from src.dbopt.DB_Top_opt import DecisionBoundrayOptimizer
+from src.dbopt.persistent_gradient import PersistentGradient  # type: ignore
+from src.dbopt.persistent_gradient import plot_persistence_diagram
 #from dbopt.FCNN import _FCNN
 
 # %%
@@ -133,6 +133,7 @@ from dbopt.persistent_gradient import plot_persistence_diagram
 #print(sc.topological_loss_with_gradient(theta2))
 
 # %%
+from src.dbopt.Bumps import Bumps
 bumps = Bumps()
 net = bumps
 theta = jnp.array(0.)
@@ -155,7 +156,7 @@ theta = db_opt.optimize(n_epochs=13)
 bumps.plot(ax2, theta)
 pts = db_opt.get_points()
 ax2.scatter(pts[:, 0], pts[:, 1], color='red')
-plt.savefig('bumps_optimization.pdf')
+#plt.savefig('bumps_optimization.pdf')
 
 #########################################################################
 ######################## DONE WITH THE BUMPS ############################

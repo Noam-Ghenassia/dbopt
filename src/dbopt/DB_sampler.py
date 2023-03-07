@@ -1,7 +1,8 @@
 from jax import random
 from jax import numpy as jnp
 from jax import value_and_grad
-from jax.experimental.optimizers import adam
+#from jax.experimental.optimizers import adam
+from optax import adam, apply_updates
 import numpy as np
 
 class DecisionBoundarySampler():
@@ -67,13 +68,19 @@ class DecisionBoundarySampler():
             return jnp.mean(losses), losses
         return jnp.mean(losses)
 
-    def _step(self, net, theta, epoch, opt_state, opt_update, get_points):
+    #def _step(self, net, theta, epoch, opt_state, opt_update, get_points):
+    def _step(self, net, theta, opt, opt_state, return_points=False):
         """Performs an optimization step.
         """
 
-        value, grads = value_and_grad(lambda x: self._loss(x, theta, net))(get_points(opt_state))
-        opt_state = opt_update(epoch, grads, opt_state)
-        return value, opt_state
+        # value, grads = value_and_grad(lambda x: self._loss(x, theta, net))(get_points(opt_state))
+        # opt_state = opt_update(epoch, grads, opt_state)
+        # return value, opt_state
+
+        loss, grads = value_and_grad(lambda x: self._loss(x, theta, net))(self.points)
+        updates, opt_state = opt.update(grads, opt_state)
+        self.points = apply_updates(self.points, updates)
+        return loss
     
     def get_points(self):
         return self.points
@@ -97,17 +104,21 @@ class DecisionBoundarySampler():
         """
 
         if points is None:
-            opt_init, opt_update, get_points = adam(lr)
-            opt_state = opt_init(self.points)
+            # opt_init, opt_update, get_points = adam(lr)
+            # opt_state = opt_init(self.points)
+            opt = adam(lr)
+            opt_state = opt.init(self.points)
             
             losses = np.empty((epochs,))
 
             for epoch in range(epochs):
-                value, opt_state = self._step(net, theta, epoch, opt_state, opt_update, get_points)
-                self.points = get_points(opt_state)
+                # value, opt_state = self._step(net, theta, epoch, opt_state, opt_update, get_points)
+                # self.points = get_points(opt_state)
+                # losses[epoch] = value
+                value = self._step(net, theta, opt, opt_state)
                 losses[epoch] = value
             
-            #DELETE POINTS WITH BIG LOSS
+            #DELETE POINTS WITH HIGH LOSS
             if delete_outliers:
                 _, losses = self._loss(self.points, theta, net, return_losses=True)
                 indices = np.argwhere(losses > threshold)
@@ -116,20 +127,25 @@ class DecisionBoundarySampler():
             return self.points
         
         else :
-            opt_init, opt_update, get_points = adam(lr)
-            opt_state = opt_init(points)
-            
-            #losses = np.empty((epochs,))
+            # opt_init, opt_update, get_points = adam(lr)
+            # opt_state = opt_init(points)
+            self.points=points
+            opt = adam(lr)
+            opt_state = opt.init(self.points)
+
+            losses = np.empty((epochs,))
 
             for epoch in range(epochs):
-                value, opt_state = self._step(net, theta, epoch, opt_state, opt_update, get_points)
-                points = get_points(opt_state)
-            #    losses[epoch] = value
+                # value, opt_state = self._step(net, theta, epoch, opt_state, opt_update, get_points)
+                # points = get_points(opt_state)
+                # losses[epoch] = value
+                value = self._step(net, theta, opt, opt_state)
+                losses[epoch] = value
             
-            #DELETE POINTS WITH BIG LOSS
+            #DELETE POINTS WITH HIGH LOSS
             if delete_outliers:
                 _, losses = self._loss(points, theta, net, return_losses=True)
                 indices = np.argwhere(losses > threshold)
                 points = np.delete(points, indices, axis=0)
             
-            return points
+            return self.points
