@@ -1,5 +1,5 @@
 import pytest
-import dbopt.DB_sampler
+import dbopt.DB_sampler_2d
 from dbopt.skeleton import fib, main
 
 __author__ = "Noam Ghenassia"

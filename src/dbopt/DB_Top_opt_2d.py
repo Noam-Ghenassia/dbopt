@@ -9,7 +9,7 @@ from jaxopt.implicit_diff import custom_root
 import optax
 
 
-from src.dbopt.DB_sampler import DecisionBoundarySampler
+from dbopt.DB_sampler_2d import DecisionBoundarySampler
 from src.dbopt.persistent_gradient import PersistentGradient
 
 class DecisionBoundrayGradient():

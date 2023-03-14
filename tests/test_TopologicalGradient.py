@@ -1,9 +1,9 @@
 import pytest
 import jax.numpy as jnp
 from jax import grad, jacrev
-from dbopt.DB_Top_opt import SingleCycleDecisionBoundary
+from dbopt.DB_Top_opt_2d import SingleCycleDecisionBoundary
 from dbopt.Bumps import Bumps
-from dbopt.DB_sampler import DecisionBoundarySampler
+from dbopt.DB_sampler_2d import DecisionBoundarySampler
 
 __author__ = "Noam Ghenassia"
 __copyright__ = "Noam Ghenassia"

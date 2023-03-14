@@ -10,11 +10,11 @@ import jax.numpy as jnp
 import jax.random as random
 import matplotlib.pyplot as plt
 
-from dbopt.DB_sampler import DecisionBoundarySampler
+from dbopt.DB_sampler_2d import DecisionBoundarySampler
 from dbopt.Bumps import Bumps
 from dbopt.Datasets import Spiral
 from dbopt.FCNN import FCNN
-from dbopt.DB_Top_opt import DecisionBoundrayOptimizer
+from dbopt.DB_Top_opt_2d import DecisionBoundrayOptimizer
 
 # %%
 seed = 24

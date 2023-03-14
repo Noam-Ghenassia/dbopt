@@ -1,5 +1,5 @@
 import pytest
-from dbopt.DB_sampler import DecisionBoundarySampler
+from dbopt.DB_sampler_2d import DecisionBoundarySampler
 import jax.numpy as jnp
 
 __author__ = "Noam Ghenassia"
