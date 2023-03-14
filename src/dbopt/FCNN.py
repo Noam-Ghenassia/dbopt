@@ -41,7 +41,8 @@ class FCNN(nn.Module):
             activation = layer(activation)
             if i != len(self.layers) - 1:
                 activation = nn.elu(activation)
-        return jnp.exp(nn.log_softmax(activation))
+        # return jnp.exp(nn.log_softmax(activation))
+        return nn.softmax(activation)
     
     def make_loss_fn(self, data, labels):
         """This function allows to create a categorical cross-entropy
@@ -85,12 +86,12 @@ class FCNN(nn.Module):
         batches_list.append(permuted_dataset[-remainder-1:-1, :])
         return batches_list
     
-    def _make_optimizer(self, params):
-        opt = optax.adam(learning_rate=0.01)
+    def _make_optimizer(self, params, lr):
+        opt = optax.adam(learning_rate=lr)
         opt_state = opt.init(params)
         return opt, opt_state
     
-    def train(self, key, params,  dataset, epochs):
+    def train(self, key, params,  dataset, epochs, lr=0.01, logs_frequency=0):
         """This function allows to rain the neural network. The parameters
         of the network should be passed as argument after initialization.
 
@@ -98,11 +99,12 @@ class FCNN(nn.Module):
             params (jax.FrozenDict): The parameters of the network.
             dataset (jnp.array): The training set.
             epochs (int): The number of training epochs.
+            logs_frequency (int): The frequency (in epochs) at which logs are printed
 
         Returns:
             jax.FrozenDict: The network's parameters after training.
         """
-        optimizer, opt_state = self._make_optimizer(params)
+        optimizer, opt_state = self._make_optimizer(params, lr)
         for epoch in range(epochs):
             key, batch_key = random.split(key)
             batches = self.make_batches(batch_key, dataset)
@@ -116,10 +118,17 @@ class FCNN(nn.Module):
                 updates, opt_state = optimizer.update(grads, opt_state)
                 params = optax.apply_updates(params, updates)
             
-            if epoch % 25 == 0:
-                print(f'epoch {epoch}, loss = {loss_fn}')
+            if (logs_frequency != 0) and (epoch % logs_frequency == 0):
+                print(f'epoch {epoch}, loss = {loss_fn}, training accuracy = {self.accuracy(params, dataset)}')
         
         return params
+    
+    def accuracy(self, params, dataset):
+        data = dataset[:, 1:]
+        labels = dataset[:, :1]
+        preds = jnp.round(self.apply(params, data))[:, 1]
+        return (jnp.dot(preds, labels) + jnp.dot(1-preds, 1-labels))/labels.shape[0]
+
     
     def plot_decision_boundary(self, params, ax, x_min=-10., x_max=10., y_min=-10., y_max=10.):
 
