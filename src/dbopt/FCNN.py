@@ -91,7 +91,7 @@ class FCNN(nn.Module):
         opt_state = opt.init(params)
         return opt, opt_state
     
-    def train(self, key, params,  dataset, epochs, lr=0.01, logs_frequency=0):
+    def train(self, key, params,  dataset, epochs, lr=0.01, logs_frequency=0, test_set=None):
         """This function allows to rain the neural network. The parameters
         of the network should be passed as argument after initialization.
 
@@ -100,6 +100,7 @@ class FCNN(nn.Module):
             dataset (jnp.array): The training set.
             epochs (int): The number of training epochs.
             logs_frequency (int): The frequency (in epochs) at which logs are printed
+            test_set (jnp.array): The data on which the test loss printed in the logs is computed.
 
         Returns:
             jax.FrozenDict: The network's parameters after training.
@@ -119,7 +120,10 @@ class FCNN(nn.Module):
                 params = optax.apply_updates(params, updates)
             
             if (logs_frequency != 0) and (epoch % logs_frequency == 0):
-                print(f'epoch {epoch}, loss = {loss_fn}, training accuracy = {self.accuracy(params, dataset)}')
+                if test_set is None:
+                    print(f'epoch {epoch}, loss = {loss_fn}, training accuracy = {self.accuracy(params, dataset)}')
+                else:
+                    print(f'epoch {epoch}, loss = {loss_fn}, training accuracy = {self.accuracy(params, dataset)}, test accuracy = {self.accuracy(params, test_set)}')
         
         return params
     
