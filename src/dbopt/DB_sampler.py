@@ -59,11 +59,11 @@ class DecisionBoundarySampler():
     def _step(self, net, theta, opt, opt_state, return_points=False):
         """Performs an optimization step.
         """
-
+        
         loss, grads = value_and_grad(lambda x: self._loss(x, theta, net))(self.points)
         updates, opt_state = opt.update(grads, opt_state)
         self.points = apply_updates(self.points, updates)
-
+        
         if return_points:
             return loss, self.points
         return loss

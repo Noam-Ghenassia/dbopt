@@ -35,7 +35,7 @@ class PersistentGradient():
         
     '''
 
-    def __init__(self, zeta: float = 0.5, homology_dimensions: tuple = (0, 1),
+    def __init__(self, zeta: float = 0.5, homology_dimensions: list = [0, 1],
                  collapse_edges: bool = False, max_edge_length: float = np.inf,
                  approx_digits: int = 6, metric: str = "euclidean",
                  directed: bool = False):
@@ -51,7 +51,6 @@ class PersistentGradient():
     
     
     def _computing_persistence_with_gph(self, X, N):
-    #def _computing_persistence_with_gph(self, X):
         """This method accepts the pointcloud and returns the
         persistence diagram in the following form
         $Pers:Filt_K \subset \mathbb R^{|K|} \to (\mathbb R^2)^p
@@ -69,17 +68,18 @@ class PersistentGradient():
                 first 2 dimensions) where the last dimension 
                 contains the homology dimension
         """
-        #distances = metric_with_normal_vectors(X, N)
+
         embedding = jnp.concatenate((X, 3*N), axis=1)
-        #output = ripser_parallel(np.asarray(stop_gradient(distances)),
+        print("before ripser")
         output = ripser_parallel(np.asarray(stop_gradient(embedding)),
-                                 maxdim=max(self.homology_dimensions),
+                                 maxdim=max(self.homology_dimensions),      # set equal to 5 for debugging
                                  thresh=self.max_edge_length,
                                  coeff=2,
                                  metric=self.metric,
                                  collapse_edges=self.collapse_edges,
                                  n_threads=-1,
                                  return_generators=True)
+        print("after ripser")
         persistence_pairs = []
         for dim in self.homology_dimensions:
             if dim == 0:

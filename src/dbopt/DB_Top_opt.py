@@ -9,7 +9,7 @@ from jaxopt.implicit_diff import custom_root
 import optax
 
 
-from dbopt.DB_sampler_2d import DecisionBoundarySampler
+from src.dbopt.DB_sampler import DecisionBoundarySampler
 from src.dbopt.persistent_gradient import PersistentGradient
 
 class DecisionBoundrayGradient():
@@ -134,27 +134,45 @@ class DecisionBoundrayGradient():
         t_init = None
         return custom_root(self._optimality_condition)\
             (self._inner_problem)(t_init, theta)
-    
-######################################################################
 
-
-class TopologicalLoss(ABC):
+class TopologicalLoss():
     """This is the abstract class from which the different topological losses are inherited.
     """
 
-    def __init__(self, net, sampled_points, with_logits=True):
+    def __init__(self, net, sampled_points, desired_homology: dict[int:jnp.array],
+                 with_logits=True, inflate_desired_features=True):
         """
         Args:
             net (Callable): the network that is being optimized.
             sampled_points (jnp.array): A sampling of the network's decision boundary.
+            desired_homology (dict[int:jnp.array]): a dictionaries with keys the homology
+                dimensions of interest and values the corresponding desired Betti number.
         """
         self.sampled_points = sampled_points
-        self.persistent_gradient = PersistentGradient()
+        self.desired_homology = desired_homology
+        self.inflate_desired_features = inflate_desired_features
+        self.persistent_gradient = PersistentGradient(homology_dimensions=list(desired_homology.keys()))
         self.db_grad = DecisionBoundrayGradient(net, sampled_points, with_logits=with_logits)
     
-    @abstractmethod
-    def _toploss(self):
-        pass
+    def _toploss(self, parametrized_sampling, normal_vectors):
+
+        pers_diag = self.persistent_gradient._computing_persistence_with_gph(parametrized_sampling, normal_vectors)
+        H_i = {dim:jnp.array([jnp.asarray(pers_pair) for pers_pair in pers_diag if pers_pair[2]==dim])
+               for dim in list(self.desired_homology.keys())}
+        lifetimes = {dim:hom[:, 1]-hom[:, 0] for (dim, hom) in H_i}
+        desired_indices = {dim:jnp.argpartition(l, self.desired_homology[dim])[-self.desired_homology[dim]] for
+                   (dim, l) in lifetimes}
+        
+        if self.inflate_desired_features:
+            desired = {dim:lifetimes[dim][desired_indices[dim]] for dim in list(lifetimes.keys())}
+            others = {dim:jnp.delete(lifetimes, desired_indices[dim]) for dim in list(lifetimes.keys())}
+            losses = jnp.array([jnp.sum(others[dim]**2) - jnp.sum(desired[dim]**2) for dim in list(lifetimes.keys())])
+            return jnp.sum(losses)
+        
+        others = {dim:jnp.delete(lifetimes, desired_indices[dim]) for dim in list(lifetimes.keys())}
+        losses = jnp.array([jnp.sum(others[dim]**2) for dim in list(lifetimes.keys())])
+        
+
     
     def update_sampled_points(self, new_points):
         """This function allows to provide a new sampling of the decision boundary.
@@ -178,114 +196,14 @@ class TopologicalLoss(ABC):
         Returns:
             jnp.array: The topological loss value.
         """
+
         t = self.db_grad.t_star(theta)
         parametrized_sampling = self.db_grad._parametrization_normal_lines(t, theta)
         normal_vectors = self.db_grad._normal_unit_vectors(theta)
         return self._toploss(parametrized_sampling, normal_vectors)
-    
 
-class SingleSmallCycle(TopologicalLoss):
-    """This class implements a topological loss that creates a single cycle in a 2D
-    decision boundary.
-    """
-    
-    def __init__(self, net, sampled_points, with_logits):
-        super().__init__(net, sampled_points, with_logits)
-    
-    def _toploss(self, parametrized_sampling, normal_vectors):
-        pers_diag = self.persistent_gradient._computing_persistence_with_gph(parametrized_sampling, normal_vectors)
-        #pers_diag = self.persistent_gradient._computing_persistence_with_gph(parametrized_sampling)
-        H1 = jnp.array([jnp.asarray(pers_pair) for pers_pair in pers_diag if pers_pair[2]==1])
-        lifetimes = H1[:, 1] - H1[:, 0]
-        other_cycles = jnp.delete(lifetimes, jnp.argmax(lifetimes))
-        return jnp.sum(other_cycles**2)
-
-class SingleCycleDecisionBoundary(TopologicalLoss):
-    """This class implements a topological loss that creates a single cycle in a 2D
-    decision boundary.
-    """
-    
-    def __init__(self, net, sampled_points, with_logits):
-        super().__init__(net, sampled_points, with_logits)
-    
-    def _toploss(self, parametrized_sampling, normal_vectors):
-        pers_diag = self.persistent_gradient._computing_persistence_with_gph(parametrized_sampling, normal_vectors)
-        H1 = jnp.array([jnp.asarray(pers_pair) for pers_pair in pers_diag if pers_pair[2]==1])
-        lifetimes = H1[:, 1] - H1[:, 0]
-        largest = jnp.argmax(lifetimes)
-        largest_cycle = lifetimes[largest]
-        other_cycles = jnp.delete(lifetimes, largest)
-        return jnp.sum(other_cycles**2) - largest_cycle**2
-
-
-class SingleCycleAndConnectedComponent(TopologicalLoss):
-    """This class implements a topological loss that creates a decision boundary with a 
-    single cycle and a single connected component.
-    """
-    
-    def __init__(self, net, sampled_points, with_logits):
-        super().__init__(net, sampled_points, with_logits)
-    
-    def _toploss(self, parametrized_sampling, normal_vectors):
-        pers_diag = self.persistent_gradient._computing_persistence_with_gph(parametrized_sampling, normal_vectors)
-        H0 = jnp.array([jnp.asarray(pers_pair) for pers_pair in pers_diag if pers_pair[2]==0])
-        H1 = jnp.array([jnp.asarray(pers_pair) for pers_pair in pers_diag if pers_pair[2]==1])
-        cycles_lifetimes = H1[:, 1] - H1[:, 0]
-        largest = jnp.argmax(cycles_lifetimes)
-        largest_cycle = cycles_lifetimes[largest]
-        other_cycles = jnp.delete(cycles_lifetimes, largest)
-        last_merge = jnp.max(H0[:, 1])
-        return jnp.sum(other_cycles**2) - largest_cycle**2 + last_merge**2
-    
-    
-class SingleConnectedComponent(TopologicalLoss):
-    """This class implements a topological loss that creates a decision boundary with a
-    single connected component.
-    """
-    
-    def __init__(self, net, sampled_points, with_logits):
-        super().__init__(net, sampled_points, with_logits)
-    
-    def _toploss(self, parametrized_sampling, normal_vectors):
-        pers_diag = self.persistent_gradient._computing_persistence_with_gph(parametrized_sampling, normal_vectors)
-        H0 = jnp.array([jnp.asarray(pers_pair) for pers_pair in pers_diag if pers_pair[2]==0])
-        last_merge = jnp.max(H0[:, 1])
-        return last_merge**2
-    
-class SingleConnectedComponentAndNoCycles(TopologicalLoss):
-    """This class implements a topological loss that creates a decision boundary with a
-    single connected component and no cycles.
-    """
-    
-    def __init__(self, net, sampled_points, with_logits):
-        super().__init__(net, sampled_points, with_logits)
-    
-    def _toploss(self, parametrized_sampling, normal_vectors):
-        pers_diag = self.persistent_gradient._computing_persistence_with_gph(parametrized_sampling, normal_vectors)
-        H0 = jnp.array([jnp.asarray(pers_pair) for pers_pair in pers_diag if pers_pair[2]==0])
-        H1 = jnp.array([jnp.asarray(pers_pair) for pers_pair in pers_diag if pers_pair[2]==1])
-        cycles_lifetimes = H1[:, 1] - H1[:, 0]
-        last_merge = jnp.max(H0[:, 1])
-        return 100*jnp.sum(cycles_lifetimes**2) + last_merge**2
-
-
-def get_topological_loss(loss_name: str, net: Callable, sampled_points: jnp.array, with_logits) -> TopologicalLoss:
-    if loss_name == "single_cycle":
-        return SingleCycleDecisionBoundary(net, sampled_points, with_logits)
-    elif loss_name == "single_small_cycle":
-        return SingleSmallCycle(net, sampled_points, with_logits)
-    elif loss_name == "single_cycle_and_connected_component":
-        return SingleCycleAndConnectedComponent(net, sampled_points, with_logits)
-    elif loss_name =="single_connected_component":
-        return SingleConnectedComponent(net, sampled_points, with_logits)
-    elif loss_name == "single_connected_component_and_no_cycles":
-        return SingleConnectedComponentAndNoCycles(net, sampled_points, with_logits)
-    else:
-        raise ValueError("The topological loss {} is not supported.".format(loss_name))
-        
-
-##################################################################
-
+######################################################################
+######################################################################
     
 
 class DecisionBoundrayOptimizer():
@@ -294,8 +212,9 @@ class DecisionBoundrayOptimizer():
     """
     
     
-    def __init__(self, net, theta, n_sampling, loss_name: str, sampling_epochs=1000,
-                 update_epochs=3, sampling_lr=0.01, optimization_lr=0.01, min_x=-10., max_x=10., min_y=-10., max_y=10.,
+    def __init__(self, net, theta, n_sampling, desired_homology:dict[int, jnp.array],
+                 input_dimension, inflate_desired_features=True, sampling_epochs=1000,
+                 update_epochs=3, sampling_lr=0.01, optimization_lr=0.01, min=-1, max=1.,
                  with_logits=True, with_dataset=True):
         """Args:
             net (Callable): The network that is being optimized.
@@ -311,9 +230,10 @@ class DecisionBoundrayOptimizer():
         self.use_cross_entropy_loss = with_dataset
         self.update_epochs = update_epochs
         self.optimization_lr = optimization_lr
-        self.sampler = DecisionBoundarySampler(n_points=n_sampling, min_x=min_x, max_x=max_x, min_y=min_y, max_y=max_y)
+        self.sampler = DecisionBoundarySampler(n_points=n_sampling, input_dim=input_dimension, min=min, max=max)
         self.sampled_points = self.sampler.sample(theta, net, points=None, lr=sampling_lr, epochs=sampling_epochs)
-        self.toploss = get_topological_loss(loss_name, self.net, self.sampled_points, with_logits=with_logits)
+        self.toploss = TopologicalLoss(self.net, self.sampled_points, desired_homology=desired_homology,
+                                       with_logits=with_logits, inflate_desired_features=inflate_desired_features)
     
     def _update_sampled_points(self):
         """This function updates the sampled points so they remain on the decsion boundary
