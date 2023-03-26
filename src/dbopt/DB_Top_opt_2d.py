@@ -9,7 +9,7 @@ from jaxopt.implicit_diff import custom_root
 import optax
 
 
-from dbopt.DB_sampler_2d import DecisionBoundarySampler
+from src.dbopt.DB_sampler_2d import DecisionBoundarySampler
 from src.dbopt.persistent_gradient import PersistentGradient
 
 class DecisionBoundrayGradient():
@@ -249,6 +249,7 @@ class SingleConnectedComponent(TopologicalLoss):
     def _toploss(self, parametrized_sampling, normal_vectors):
         pers_diag = self.persistent_gradient._computing_persistence_with_gph(parametrized_sampling, normal_vectors)
         H0 = jnp.array([jnp.asarray(pers_pair) for pers_pair in pers_diag if pers_pair[2]==0])
+        print(H0.shape)
         last_merge = jnp.max(H0[:, 1])
         return last_merge**2
     

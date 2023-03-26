@@ -42,7 +42,8 @@ class FCNN(nn.Module):
             if i != len(self.layers) - 1:
                 activation = nn.elu(activation)
         # return jnp.exp(nn.log_softmax(activation))
-        return nn.softmax(activation)
+        # return nn.softmax(activation)
+        return activation
     
     def make_loss_fn(self, data, labels):
         """This function allows to create a categorical cross-entropy
@@ -60,8 +61,8 @@ class FCNN(nn.Module):
         def loss_fn(params):
             preds = self.apply(params, data)
             one_hot_gt_labels = jax.nn.one_hot(labels, num_classes=2)
-            loss = -jnp.mean(jnp.sum(one_hot_gt_labels * jnp.log(preds), axis=-1))
-            return loss
+            loss = optax.softmax_cross_entropy(preds, one_hot_gt_labels)
+            return jnp.sum(loss)
         
         return loss_fn
     
@@ -123,14 +124,15 @@ class FCNN(nn.Module):
                 if test_set is None:
                     print(f'epoch {epoch}, loss = {loss_fn}, training accuracy = {self.accuracy(params, dataset)}')
                 else:
-                    print(f'epoch {epoch}, loss = {loss_fn}, training accuracy = {self.accuracy(params, dataset)}, test accuracy = {self.accuracy(params, test_set)}')
+                    print(f'epoch {epoch}, loss = {loss_fn}, training accuracy = {self.accuracy(params, dataset)},',
+                          f' test accuracy = {self.accuracy(params, test_set)}')
         
         return params
     
     def accuracy(self, params, dataset):
         data = dataset[:, 1:]
         labels = dataset[:, :1]
-        preds = jnp.round(self.apply(params, data))[:, 1]
+        preds = jnp.round(nn.activation.softmax(self.apply(params, data)))[:, 1]
         return (jnp.dot(preds, labels) + jnp.dot(1-preds, 1-labels))/labels.shape[0]
 
     

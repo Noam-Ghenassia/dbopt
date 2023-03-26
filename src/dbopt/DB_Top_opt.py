@@ -159,13 +159,13 @@ class TopologicalLoss():
         pers_diag = self.persistent_gradient._computing_persistence_with_gph(parametrized_sampling, normal_vectors)
         H_i = {dim:jnp.array([jnp.asarray(pers_pair) for pers_pair in pers_diag if pers_pair[2]==dim])
                for dim in list(self.desired_homology.keys())}
-        lifetimes = {dim:hom[:, 1]-hom[:, 0] for (dim, hom) in H_i}
+        lifetimes = {dim:hom[:, 1]-hom[:, 0] for dim, hom in H_i.items()}
         desired_indices = {dim:jnp.argpartition(l, self.desired_homology[dim])[-self.desired_homology[dim]] for
-                   (dim, l) in lifetimes}
+                   dim, l in lifetimes.items()}
         
         if self.inflate_desired_features:
-            desired = {dim:lifetimes[dim][desired_indices[dim]] for dim in list(lifetimes.keys())}
-            others = {dim:jnp.delete(lifetimes, desired_indices[dim]) for dim in list(lifetimes.keys())}
+            desired = {dim:lts[desired_indices[dim]] for dim, lts in lifetimes.items()}
+            others = {dim:jnp.delete(lts, desired_indices[dim]) for dim, lts in lifetimes.items()}
             losses = jnp.array([jnp.sum(others[dim]**2) - jnp.sum(desired[dim]**2) for dim in list(lifetimes.keys())])
             return jnp.sum(losses)
         
@@ -287,7 +287,7 @@ class DecisionBoundrayOptimizer():
         return loss_fn
 
 
-    def optimize(self, n_epochs, dataset=None):
+    def optimize(self, n_epochs, train_dataset=None, test_dataset=None):
         """This function allows to optimize the decision boundary. It uses the Adam
         optimizer to minimize the value of the topological loss. After each epoch,
         it updates the sampling of the decision boundary by calling the sample method
@@ -305,20 +305,29 @@ class DecisionBoundrayOptimizer():
         opt_state = optimizer.init(params)
         
         if self.use_cross_entropy_loss:
-            data = dataset[:, 1:]
-            labels = jnp.squeeze(dataset[:, :1], axis=1)
+            data = train_dataset[:, 1:]
+            labels = jnp.squeeze(train_dataset[:, :1], axis=1)
             CE_loss = self.make_loss_fn(data, labels)
             loss = lambda x: self.toploss.differentiable_topological_loss(x)+2000*CE_loss(x)
         else:
             loss = lambda x: self.toploss.differentiable_topological_loss(x)
 
         for epoch in range(n_epochs):
-            print('epoch : ', epoch)
             grads = grad(loss)(self.theta)
+            print(grads)
             updates, opt_state = optimizer.update(grads, opt_state)
             params = optax.apply_updates(params, updates)
             self.theta = params
             self._update_sampled_points()
+
+            if self.use_cross_entropy_loss:
+                if test_dataset is not None:
+                    print(f'epoch : {epoch}, train loss : {self.net.accuracy(params, train_dataset)}',
+                        f'test loss : {self.net.accuracy(params, test_dataset)}')
+                else:
+                    print(f'epoch : {epoch}, train loss : {self.net.accuracy(params, train_dataset)}')
+            else:
+                print('epoch : ', epoch)
         
         return self.theta
     

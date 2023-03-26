@@ -70,16 +70,14 @@ class PersistentGradient():
         """
 
         embedding = jnp.concatenate((X, 3*N), axis=1)
-        print("before ripser")
         output = ripser_parallel(np.asarray(stop_gradient(embedding)),
-                                 maxdim=max(self.homology_dimensions),      # set equal to 5 for debugging
+                                 maxdim=max(self.homology_dimensions),
                                  thresh=self.max_edge_length,
                                  coeff=2,
                                  metric=self.metric,
                                  collapse_edges=self.collapse_edges,
                                  n_threads=-1,
                                  return_generators=True)
-        print("after ripser")
         persistence_pairs = []
         for dim in self.homology_dimensions:
             if dim == 0:
@@ -97,7 +95,6 @@ class PersistentGradient():
                 persistence_pairs += [(jnp.linalg.norm(embedding[x[1]]-embedding[x[0]]), 
                                       jnp.linalg.norm(embedding[x[3]]-embedding[x[2]]), 
                                       dim) for x in output["gens"][1][dim-1]]
-
         return persistence_pairs
 
 @jit

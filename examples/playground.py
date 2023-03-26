@@ -13,12 +13,12 @@ import jax.random as random
 from jax import grad
 import matplotlib.pyplot as plt
 
-from dbopt.DB_sampler_2d import DecisionBoundarySampler
+from src.dbopt.DB_sampler_2d import DecisionBoundarySampler
 from src.dbopt.Bumps import Bumps
 from src.dbopt.Datasets import Spiral
 from src.dbopt.FCNN import FCNN
-from dbopt.DB_Top_opt_2d import DecisionBoundrayGradient
-from dbopt.DB_Top_opt_2d import DecisionBoundrayOptimizer
+from src.dbopt.DB_Top_opt_2d import DecisionBoundrayGradient
+from src.dbopt.DB_Top_opt_2d import DecisionBoundrayOptimizer
 from src.dbopt.persistent_gradient import PersistentGradient  # type: ignore
 from src.dbopt.persistent_gradient import plot_persistence_diagram
 #from dbopt.FCNN import _FCNN

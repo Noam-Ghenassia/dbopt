@@ -28,7 +28,7 @@ class DecisionBoundarySampler():
         """
         
         self.key, sampling_key = random.split(self.key)
-        return random.uniform(sampling_key, shape=(self.n_points, self.input_dim), minval=self.min, maxval=self.min)
+        return random.uniform(sampling_key, shape=(self.n_points, self.input_dim), minval=self.min, maxval=self.max)
 
     def _loss(self, points, theta, net, squaredDiff=True, return_losses=False, binary_classification=True):
         """A loss function that penalises points that lie far from the DB.
