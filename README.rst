@@ -37,7 +37,7 @@ dbopt
     Enforcing a user specified topology on the decision boundary of a neural network.
 
 
-Dbopt allows the user to specify a set of Betti numbers for the decision boundary of a neural network. It then randomly samples the decision boundary to construct a filtered simplicial complex that resembles the decision boundary and allows to compute its persistent homology. The obtained Betty numbers are then compared with the desired ones, and a loss function is computed. The gradient of this loss function is then propagated back to the weights of the neural network through implicit differentiation, so the weights can be updated in order to better fit the desired homology. For more details, please refer to the [paper draft](./Topological_optimisation_of_the_decision_boundary.pdf)
+Dbopt allows the user to specify a set of Betti numbers for the decision boundary of a neural network. It then randomly samples the decision boundary to construct a filtered simplicial complex that resembles the decision boundary and allows to compute its persistent homology. The obtained Betty numbers are then compared with the desired ones, and a loss function is computed. The gradient of this loss function is then propagated back to the weights of the neural network through implicit differentiation, so the weights can be updated in order to better fit the desired homology. For more details, please refer to the [paper draft](https://github.com/Noam-Ghenassia/dbopt/blob/main/Topological_optimisation_of_the_decision_boundary.pdf)
 
 
 .. _pyscaffold-notes:
